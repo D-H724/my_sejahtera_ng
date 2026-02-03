@@ -449,7 +449,7 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                "MySJ Assistant",
+                "My Sejahtera Assistant",
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 18,
