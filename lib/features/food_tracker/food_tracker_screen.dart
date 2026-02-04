@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/legacy.dart' show StateNotifierProvider, StateNotifier;
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:fl_chart/fl_chart.dart'; // Add this
+import 'package:fl_chart/fl_chart.dart';
 import 'package:my_sejahtera_ng/core/widgets/glass_container.dart';
 import 'package:intl/intl.dart'; // For date formatting
 
