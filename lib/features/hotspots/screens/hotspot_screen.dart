@@ -69,7 +69,6 @@ class _HotspotScreenState extends State<HotspotScreen> {
       });
       
       // Move map to location
-      // Note: MapController might not be ready if widget is just building, but setState triggers rebuild
     } catch (e) {
       setState(() {
         _statusMessage = "Error getting location: $e";
