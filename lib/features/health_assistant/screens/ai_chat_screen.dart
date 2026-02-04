@@ -37,7 +37,7 @@ class ChatNotifier extends Notifier<List<ChatMessage>> {
   List<ChatMessage> build() {
     return [
       ChatMessage(
-        text: 'Hello! I am MySJ AI, powered by Llama 3 on Groq. I can help you check in, find vaccines, or answer health questions (Lightning Fast!).',
+        text: 'Hello! I am your virtual assistant , powered by Llama 3 on Groq. I can help you check in, find vaccines, or answer health questions.',
         isUser: false,
       ),
     ];
@@ -227,8 +227,7 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
       if (!mounted) return;
       HapticFeedback.heavyImpact(); // Haptic for error
       
-      // If network calls fail, maybe switch to offline mode automatically?
-      // For now, just show error.
+      // If network calls fail, show error.
       ref.read(chatProvider.notifier).addMessage(ChatMessage(
         text: "Error connecting to AI: ${e.toString()}",
         isUser: false,
