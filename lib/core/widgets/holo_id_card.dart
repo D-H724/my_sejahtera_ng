@@ -153,7 +153,7 @@ class _HoloIdCardState extends ConsumerState<HoloIdCard> {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text("SHANJAAY KRISHNA", style: GoogleFonts.outfit(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                          Text("SHANJAAY DHIVIYAN THARA", style: GoogleFonts.outfit(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
                           Text("LVL ${progress.level} • ${progress.unlockedThemes.length} THEMES", style: GoogleFonts.outfit(color: glowColor, fontSize: 14, fontWeight: FontWeight.w600)),
                         ],
                       ),
