@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:my_sejahtera_ng/core/services/database_service.dart';
+// import 'package:my_sejahtera_ng/core/services/database_service.dart';
 import 'package:my_sejahtera_ng/core/theme/app_theme.dart';
 import 'package:my_sejahtera_ng/core/widgets/glass_container.dart';
 
@@ -28,15 +28,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
 
-      final result = await DatabaseService().registerUser(
-        username: _usernameController.text,
-        password: _passwordController.text,
-        fullName: _nameController.text,
-        icNumber: _icController.text,
-        phone: _phoneController.text,
-        securityQuestion: _securityQuestion,
-        securityAnswer: _securityAnswerController.text,
-      );
+      // Mock registration
+      await Future.delayed(const Duration(milliseconds: 1000));
+      final result = 1; // Always success
 
       setState(() => _isLoading = false);
 
