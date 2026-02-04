@@ -38,7 +38,7 @@ class _CheckInScreenState extends State<CheckInScreen> with SingleTickerProvider
               height: double.infinity,
               color: Colors.grey[900], // Placeholder for CameraPreview
               child: const Center(
-                child: Text("Camera Preview Sim", style: TextStyle(color: Colors.white24)),
+                child: Text("Camera Preview", style: TextStyle(color: Colors.white24)),
               ),
             ),
           ),
