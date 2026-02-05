@@ -23,6 +23,12 @@ class NotificationService {
         android: initializationSettingsAndroid, iOS: initializationSettingsDarwin);
 
     await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+    
+    // Request permission for Android 13+
+    await flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.requestNotificationsPermission();
   }
 
   Future<void> scheduleDailyNotification({

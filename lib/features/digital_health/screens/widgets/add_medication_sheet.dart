@@ -1,22 +1,22 @@
 
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:my_sejahtera_ng/features/digital_health/models/medication.dart';
-import 'package:my_sejahtera_ng/features/digital_health/providers/medication_provider.dart';
 
-class AddMedicationSheet extends ConsumerStatefulWidget {
-  const AddMedicationSheet({super.key});
+class AddMedicationSheet extends StatefulWidget {
+  final Function(Medication) onSave;
+
+  const AddMedicationSheet({super.key, required this.onSave});
 
   @override
-  ConsumerState<AddMedicationSheet> createState() => _AddMedicationSheetState();
+  State<AddMedicationSheet> createState() => _AddMedicationSheetState();
 }
 
-class _AddMedicationSheetState extends ConsumerState<AddMedicationSheet> {
+class _AddMedicationSheetState extends State<AddMedicationSheet> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _dosageController = TextEditingController();
-  final _pillsController = TextEditingController(); // To replace with int parsing
+  final _pillsController = TextEditingController();
   final _instructionsController = TextEditingController();
   DateTime _selectedTime = DateTime.now();
 
@@ -140,7 +140,7 @@ class _AddMedicationSheetState extends ConsumerState<AddMedicationSheet> {
                         instructions: _instructionsController.text,
                       );
                       
-                      ref.read(medicationProvider.notifier).addMedication(medication);
+                      widget.onSave(medication);
                       Navigator.pop(context);
                     }
                   },

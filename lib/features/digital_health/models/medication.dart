@@ -6,6 +6,7 @@ class Medication {
   final int pillsToTake;
   final DateTime time;
   final String instructions;
+  final bool isTaken;
 
   Medication({
     this.id,
@@ -14,6 +15,7 @@ class Medication {
     required this.pillsToTake,
     required this.time,
     required this.instructions,
+    this.isTaken = false,
   });
 
   Map<String, dynamic> toMap() {
@@ -24,6 +26,7 @@ class Medication {
       'pillsToTake': pillsToTake,
       'time': time.toIso8601String(),
       'instructions': instructions,
+      'isTaken': isTaken ? 1 : 0,
     };
   }
 
@@ -35,6 +38,27 @@ class Medication {
       pillsToTake: map['pillsToTake'],
       time: DateTime.parse(map['time']),
       instructions: map['instructions'],
+      isTaken: map['isTaken'] == 1,
+    );
+  }
+
+  Medication copyWith({
+    int? id,
+    String? name,
+    String? dosage,
+    int? pillsToTake,
+    DateTime? time,
+    String? instructions,
+    bool? isTaken,
+  }) {
+    return Medication(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      dosage: dosage ?? this.dosage,
+      pillsToTake: pillsToTake ?? this.pillsToTake,
+      time: time ?? this.time,
+      instructions: instructions ?? this.instructions,
+      isTaken: isTaken ?? this.isTaken,
     );
   }
 }
