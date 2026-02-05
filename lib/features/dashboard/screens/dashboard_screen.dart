@@ -246,29 +246,28 @@ class DashboardScreen extends ConsumerWidget {
       {
         'icon': LucideIcons.qrCode,
         'label': 'Check-In',
-        'color': Colors.blueAccent,
       },
       {
         'icon': LucideIcons.syringe,
         'label': 'Vaccine',
-        'color': Colors.purpleAccent,
       },
       {
         'icon': LucideIcons.mapPin,
         'label': 'Hotspots',
-        'color': Colors.redAccent,
       },
       {
         'icon': LucideIcons.stethoscope,
         'label': 'Health',
-        'color': Colors.tealAccent,
       },
       {
         'icon': LucideIcons.apple,
         'label': 'Food Intake Monitor',
-        'color': Colors.lightGreenAccent,
       },
     ];
+
+    final currentTheme = ref.watch(themeProvider);
+    final themeColor = AppThemes.getPrimaryColor(currentTheme);
+    final accentColor = AppThemes.getAccentColor(currentTheme);
 
     return GridView.builder(
       shrinkWrap: true,
@@ -320,7 +319,7 @@ class DashboardScreen extends ConsumerWidget {
           },
           child: Stack(
             children: [
-              // 1. Glowing Gradient Background
+              // 1. Glowing Gradient Background with Frame
               Container(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(24),
@@ -328,24 +327,24 @@ class DashboardScreen extends ConsumerWidget {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      (item['color'] as Color).withValues(alpha: 0.2),
-                      (item['color'] as Color).withValues(alpha: 0.05),
+                      themeColor.withValues(alpha: 0.25),
+                      themeColor.withValues(alpha: 0.1),
                     ],
                   ),
                   border: Border.all(
-                    color: (item['color'] as Color).withValues(alpha: 0.4),
-                    width: 1.5,
+                    color: themeColor.withValues(alpha: 0.8), // Prominent Frame
+                    width: 2.0,
                   ),
                   boxShadow: [
                     // Outer Glow
                     BoxShadow(
-                      color: (item['color'] as Color).withValues(alpha: 0.25),
-                      blurRadius: 20,
-                      spreadRadius: 2,
+                      color: themeColor.withValues(alpha: 0.3),
+                      blurRadius: 15,
+                      spreadRadius: 1,
                     ),
                     // Inner depth shadow
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.3),
+                      color: Colors.black.withValues(alpha: 0.4),
                       blurRadius: 10,
                       offset: const Offset(0, 5),
                     ),
@@ -362,16 +361,16 @@ class DashboardScreen extends ConsumerWidget {
                     Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: (item['color'] as Color).withValues(alpha: 0.2),
+                        color: themeColor.withValues(alpha: 0.2),
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: (item['color'] as Color).withValues(alpha: 0.5),
-                          width: 1,
+                          color: accentColor.withValues(alpha: 0.6),
+                          width: 1.5,
                         ),
                         boxShadow: [
                            BoxShadow(
-                             color: (item['color'] as Color).withValues(alpha: 0.2),
-                             blurRadius: 10,
+                             color: themeColor.withValues(alpha: 0.3),
+                             blurRadius: 12,
                              spreadRadius: 2,
                            )
                         ]
@@ -389,7 +388,11 @@ class DashboardScreen extends ConsumerWidget {
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
                           fontSize: 15,
-                          letterSpacing: 0.5),
+                          letterSpacing: 0.5,
+                          shadows: [
+                            Shadow(color: Colors.black54, blurRadius: 4, offset: Offset(0, 2))
+                          ]
+                        ),
                     ),
                   ],
                 ),
