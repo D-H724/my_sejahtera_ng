@@ -293,7 +293,7 @@ class DashboardScreen extends ConsumerWidget {
             } else if (label == 'Health') {
               targetScreen = const DigitalHealthScreen();
             } else if (label == 'Food Intake Monitor') {
-              targetScreen = const FoodTrackerScreen();
+              targetScreen = FoodTrackerScreen();
             } else {
               targetScreen = FeatureDetailScreen(
                 title: label,

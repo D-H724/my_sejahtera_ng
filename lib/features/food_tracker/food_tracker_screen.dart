@@ -1,4 +1,4 @@
-import 'dart:ui';
+import 'dart:math'; // For random suggestions
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -6,10 +6,9 @@ import 'package:flutter_riverpod/legacy.dart' show StateNotifierProvider, StateN
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:my_sejahtera_ng/core/widgets/glass_container.dart';
-import 'package:intl/intl.dart'; // For date formatting
+import 'package:intl/intl.dart';
 
 // --- DATA MODELS ---
-
 enum DrinkType { water, tea, coffee, juice, milk }
 
 class FoodEntry {
@@ -24,7 +23,7 @@ class FoodTrackerState {
   final List<String> allergies;
   final List<FoodEntry> foods;
   final List<FoodEntry> drinks;
-  final Map<String, int> dailyHistory; // Format: "yyyy-MM-dd": totalCalories
+  final Map<String, int> dailyHistory;
   final bool isScanning;
 
   FoodTrackerState({
@@ -40,13 +39,8 @@ class FoodTrackerState {
       foods.fold(0, (a, b) => a + b.calories) +
           drinks.fold(0, (a, b) => a + b.calories);
 
-  List<String> get aiInsights {
-    List<String> insights = [];
-    final caloriePercent = (totalCalories / calorieTarget);
-    if (caloriePercent >= 0.9) insights.add("🔥 Limit Warning: ${(caloriePercent * 100).toInt()}% reached.");
-    if (allergies.isNotEmpty) insights.add("🛡️ AI active: Monitoring ${allergies.length} allergens.");
-    return insights;
-  }
+  // Checks how many water entries exist
+  int get waterCount => drinks.where((d) => d.type == DrinkType.water).length;
 
   FoodTrackerState copyWith({
     int? calorieTarget,
@@ -68,7 +62,6 @@ class FoodTrackerState {
 }
 
 // --- STATE MANAGEMENT ---
-
 final foodTrackerProvider = StateNotifierProvider<FoodTrackerNotifier, FoodTrackerState>((ref) => FoodTrackerNotifier());
 
 class FoodTrackerNotifier extends StateNotifier<FoodTrackerState> {
@@ -91,7 +84,7 @@ class FoodTrackerNotifier extends StateNotifier<FoodTrackerState> {
     await Future.delayed(1200.ms);
     final riskFound = state.allergies.any((allergy) => name.toLowerCase().contains(allergy.toLowerCase()));
     state = state.copyWith(isScanning: false);
-    return riskFound ? "You have consumed an allergen giving food or drink" : null;
+    return riskFound ? "Allergen detected in entry!" : null;
   }
 
   void _updateHistory() {
@@ -112,48 +105,61 @@ class FoodTrackerNotifier extends StateNotifier<FoodTrackerState> {
 }
 
 // --- MAIN UI ---
-
 class FoodTrackerScreen extends ConsumerWidget {
-  const FoodTrackerScreen({super.key});
+  FoodTrackerScreen({super.key});
+
+  final List<String> suggestions = [
+    "🥗 Try a Balanced Lunch: Grilled chicken, brown rice, and steamed broccoli.",
+    "💧 Reduce Sugar: Swap sugary sodas with sparkling water and a slice of lemon.",
+    "🍎 Snack Smart: A handful of raw almonds and an apple provides sustained energy.",
+    "🍵 Metabolism Boost: Switch your afternoon coffee for antioxidant-rich green tea.",
+    "🥣 Fiber Focus: Add chia seeds or flaxseeds to your breakfast for better digestion."
+  ];
 
   static const List<String> availableAllergens = ['Peanut', 'Milk & Dairy', 'Sesame', 'Wheat & Gluten', 'Shellfish', 'Fish', 'Chicken', 'Lamb', 'Beef', 'Soy', 'Egg', 'Tree Nuts'];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(foodTrackerProvider);
+    final randomSuggestion = suggestions[Random().nextInt(suggestions.length)];
 
     return Scaffold(
       backgroundColor: const Color(0xFF0A0F12),
       appBar: AppBar(
-        title: const Text("FOOD INTAKE MONITOR", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.amberAccent)),
+        title: const Text("FOOD INTAKE TRACKER", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.amberAccent)),
         backgroundColor: Colors.transparent,
+        elevation: 0,
         actions: [
-          IconButton(icon: const Icon(LucideIcons.refreshCcw, color: Colors.redAccent), onPressed: () => _showResetDialog(context, ref)),
+          _buildConfigMenu(context, ref, state),
         ],
       ),
       body: Stack(
         children: [
           SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildProgressCard(state),
                 const SizedBox(height: 20),
-                _buildCalorieChart(state), // THE NEW CHART
-                const SizedBox(height: 20),
-                ...state.aiInsights.map((m) => _buildAIInsight(m)),
-                const SizedBox(height: 30),
-                _sectionHeader("Personalization"),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    _buildSettingsTile("TARGET", "${state.calorieTarget}", LucideIcons.target, () => _openTargetSheet(context, ref, state)),
-                    const SizedBox(width: 12),
-                    _buildSettingsTile("ALLERGY", "${state.allergies.length}", LucideIcons.shieldAlert, () => _openAllergySheet(context, ref, state)),
-                  ],
-                ),
+                _buildCalorieChart(state),
+                const SizedBox(height: 25),
+
+                // --- AI HEALTH INSIGHTS SECTION ---
+                _sectionHeader("AI HEALTH INSIGHTS"),
+                const SizedBox(height: 10),
+                _buildDynamicInsights(state),
+
+                const SizedBox(height: 25),
+
+                // --- HEALTHY SUGGESTIONS SECTION ---
+                _sectionHeader("HEALTHY SUGGESTIONS"),
+                const SizedBox(height: 10),
+                _buildSuggestionCard(randomSuggestion),
+
                 const SizedBox(height: 40),
                 _buildActionRow(context, ref),
+                const SizedBox(height: 50),
               ],
             ),
           ),
@@ -163,9 +169,82 @@ class FoodTrackerScreen extends ConsumerWidget {
     );
   }
 
-  // --- NEW CHART COMPONENT ---
+  // --- NEW UI COMPONENTS ---
+
+  Widget _buildConfigMenu(BuildContext context, WidgetRef ref, FoodTrackerState state) {
+    return PopupMenuButton<String>(
+      icon: const Icon(LucideIcons.settings, color: Colors.white70),
+      color: const Color(0xFF161B1E),
+      onSelected: (value) {
+        if (value == 'target') _openTargetSheet(context, ref, state);
+        if (value == 'allergy') _openAllergySheet(context, ref, state);
+        if (value == 'reset') _showResetDialog(context, ref);
+      },
+      itemBuilder: (ctx) => [
+        const PopupMenuItem(value: 'target', child: ListTile(leading: Icon(LucideIcons.target, color: Colors.cyanAccent), title: Text("Set Target", style: TextStyle(color: Colors.white)))),
+        const PopupMenuItem(value: 'allergy', child: ListTile(leading: Icon(LucideIcons.shieldAlert, color: Colors.redAccent), title: Text("Allergies", style: TextStyle(color: Colors.white)))),
+        const PopupMenuItem(value: 'reset', child: ListTile(leading: Icon(LucideIcons.refreshCcw, color: Colors.orangeAccent), title: Text("Reset Data", style: TextStyle(color: Colors.white)))),
+      ],
+    );
+  }
+
+  Widget _buildDynamicInsights(FoodTrackerState state) {
+    List<Widget> messages = [];
+    final calPercent = state.totalCalories / state.calorieTarget;
+
+    if (calPercent > 1.0) {
+      messages.add(_insightItem("Warning: Calorie target exceeded by ${(state.totalCalories - state.calorieTarget)} kcal.", Colors.redAccent, LucideIcons.frown));
+    } else if (calPercent > 0.8) {
+      messages.add(_insightItem("Approaching limit. Consider lighter snacks for the rest of the day.", Colors.orangeAccent, LucideIcons.gauge));
+    }
+
+    if (state.waterCount < 3) {
+      messages.add(_insightItem("Hydration Low: You've logged less than 3 glasses of water.", Colors.blueAccent, LucideIcons.droplets));
+    } else {
+      messages.add(_insightItem("Hydration Good: Keep maintaining this water intake!", Colors.greenAccent, LucideIcons.smile));
+    }
+
+    return Column(children: messages);
+  }
+
+  Widget _insightItem(String text, Color color, IconData icon) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(width: 12),
+          Expanded(child: Text(text, style: const TextStyle(color: Colors.white70, fontSize: 13))),
+        ],
+      ),
+    ).animate().fadeIn().slideX();
+  }
+
+  Widget _buildSuggestionCard(String text) {
+    return GlassContainer(
+      borderRadius: BorderRadius.circular(20),
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          const Icon(LucideIcons.lightbulb, color: Colors.amberAccent, size: 24),
+          const SizedBox(width: 15),
+          Expanded(child: Text(text, style: const TextStyle(color: Colors.white, fontSize: 13, height: 1.4))),
+        ],
+      ),
+    ).animate().shimmer(duration: 2.seconds);
+  }
+
+  // --- EXISTING CHART & PROGRESS LOGIC ---
 
   Widget _buildCalorieChart(FoodTrackerState state) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
     return GlassContainer(
       borderRadius: BorderRadius.circular(25),
       padding: const EdgeInsets.all(20),
@@ -179,6 +258,7 @@ class FoodTrackerScreen extends ConsumerWidget {
             child: BarChart(
               BarChartData(
                 gridData: const FlGridData(show: false),
+                maxY: (state.calorieTarget * 1.2).toDouble(),
                 titlesData: FlTitlesData(
                   leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                   rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -187,15 +267,15 @@ class FoodTrackerScreen extends ConsumerWidget {
                     sideTitles: SideTitles(
                       showTitles: true,
                       getTitlesWidget: (val, meta) {
-                        final date = DateTime.now().subtract(Duration(days: 6 - val.toInt()));
-                        return Text(DateFormat('E').format(date)[0], style: const TextStyle(color: Colors.white38, fontSize: 10));
+                        final date = today.subtract(Duration(days: 6 - val.toInt()));
+                        return Text(DateFormat('E').format(date).substring(0, 1), style: const TextStyle(color: Colors.white38, fontSize: 11));
                       },
                     ),
                   ),
                 ),
                 borderData: FlBorderData(show: false),
                 barGroups: List.generate(7, (index) {
-                  final dateKey = DateFormat('yyyy-MM-dd').format(DateTime.now().subtract(Duration(days: 6 - index)));
+                  final dateKey = DateFormat('yyyy-MM-dd').format(today.subtract(Duration(days: 6 - index)));
                   final calories = state.dailyHistory[dateKey]?.toDouble() ?? 0.0;
                   return BarChartGroupData(
                     x: index,
@@ -203,9 +283,9 @@ class FoodTrackerScreen extends ConsumerWidget {
                       BarChartRodData(
                         toY: calories,
                         color: calories > state.calorieTarget ? Colors.redAccent : Colors.cyanAccent,
-                        width: 12,
-                        borderRadius: BorderRadius.circular(4),
-                        backDrawRodData: BackgroundBarChartRodData(show: true, toY: state.calorieTarget.toDouble(), color: Colors.white10),
+                        width: 14,
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                        backDrawRodData: BackgroundBarChartRodData(show: true, toY: state.calorieTarget.toDouble(), color: Colors.white.withOpacity(0.05)),
                       )
                     ],
                   );
@@ -218,8 +298,6 @@ class FoodTrackerScreen extends ConsumerWidget {
     );
   }
 
-  // --- EXISTING UI COMPONENTS ---
-
   Widget _buildProgressCard(FoodTrackerState state) {
     double progress = (state.totalCalories / state.calorieTarget).clamp(0.0, 1.0);
     return GlassContainer(
@@ -230,7 +308,7 @@ class FoodTrackerScreen extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text("Today's Intake", style: TextStyle(color: Colors.white38, fontSize: 14)),
+              const Text("Today's Progress", style: TextStyle(color: Colors.white38, fontSize: 14)),
               Text("${(progress * 100).toInt()}%", style: const TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold)),
             ],
           ),
@@ -239,33 +317,6 @@ class FoodTrackerScreen extends ConsumerWidget {
           const SizedBox(height: 15),
           Text("${state.totalCalories} / ${state.calorieTarget} kcal", style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w900)),
         ],
-      ),
-    );
-  }
-
-  Widget _buildAIInsight(String msg) {
-    return Container(
-      margin: const EdgeInsets.only(top: 10),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: Colors.amberAccent.withOpacity(0.05), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.amberAccent.withOpacity(0.2))),
-      child: Row(children: [const Icon(LucideIcons.sparkles, color: Colors.amberAccent, size: 16), const SizedBox(width: 12), Expanded(child: Text(msg, style: const TextStyle(color: Colors.white70, fontSize: 13)))]),
-    ).animate().shimmer();
-  }
-
-  Widget _buildSettingsTile(String t, String v, IconData i, VoidCallback onTap) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: GlassContainer(
-          borderRadius: BorderRadius.circular(20),
-          padding: const EdgeInsets.all(16),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Icon(i, color: Colors.cyanAccent, size: 20),
-            const SizedBox(height: 10),
-            Text(t, style: const TextStyle(color: Colors.white38, fontSize: 10)),
-            Text(v, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          ]),
-        ),
       ),
     );
   }
@@ -286,14 +337,18 @@ class FoodTrackerScreen extends ConsumerWidget {
         onPressed: onTap,
         icon: Icon(i, size: 18),
         label: Text(l, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-        style: ElevatedButton.styleFrom(backgroundColor: c.withOpacity(0.1), foregroundColor: c, padding: const EdgeInsets.symmetric(vertical: 20), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: BorderSide(color: c.withOpacity(0.3)))),
+        style: ElevatedButton.styleFrom(
+            backgroundColor: c.withOpacity(0.1),
+            foregroundColor: c,
+            padding: const EdgeInsets.symmetric(vertical: 20),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: BorderSide(color: c.withOpacity(0.3)))),
       ),
     );
   }
 
-  Widget _sectionHeader(String t) => Align(alignment: Alignment.centerLeft, child: Text(t, style: const TextStyle(color: Colors.white54, fontWeight: FontWeight.bold, fontSize: 12)));
+  Widget _sectionHeader(String t) => Text(t, style: const TextStyle(color: Colors.white54, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 1.2));
 
-  // --- LOGIC & SHEETS ---
+  // --- DIALOGS & SHEETS ---
 
   void _openAllergySheet(BuildContext context, WidgetRef ref, FoodTrackerState s) {
     showModalBottomSheet(
@@ -325,27 +380,13 @@ class FoodTrackerScreen extends ConsumerWidget {
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: isSelected ? Colors.redAccent : Colors.transparent),
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (isSelected) const Icon(Icons.check, size: 16, color: Colors.redAccent),
-                          if (isSelected) const SizedBox(width: 8),
-                          Text(allergy, style: TextStyle(color: isSelected ? Colors.redAccent : Colors.white70)),
-                        ],
-                      ),
+                      child: Text(allergy, style: TextStyle(color: isSelected ? Colors.redAccent : Colors.white70)),
                     ),
                   );
                 }).toList(),
               ),
               const SizedBox(height: 30),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text("SAVE OPTIONS", style: TextStyle(color: Colors.white)),
-                ),
-              ),
+              SizedBox(width: double.infinity, child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent), onPressed: () => Navigator.pop(context), child: const Text("SAVE OPTIONS"))),
             ],
           ),
         ),
@@ -368,7 +409,7 @@ class FoodTrackerScreen extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(isDrink ? "ADD DRINK" : "ADD FOOD", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              Text(isDrink ? "LOG DRINK" : "LOG FOOD", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               const SizedBox(height: 15),
               if (isDrink)
                 DropdownButton<DrinkType>(
@@ -386,7 +427,6 @@ class FoodTrackerScreen extends ConsumerWidget {
                   final cal = int.tryParse(calCtrl.text) ?? 0;
                   if (name.isEmpty) return;
                   Navigator.pop(ctx);
-
                   final riskMessage = await ref.read(foodTrackerProvider.notifier).checkAllergyRisk(name);
                   if (riskMessage != null) {
                     _showAllergenWarning(context, riskMessage, isDrink, () {
@@ -407,13 +447,12 @@ class FoodTrackerScreen extends ConsumerWidget {
   }
 
   void _showAllergenWarning(BuildContext context, String message, bool isDrink, VoidCallback onConfirm) {
-    final category = isDrink ? "drink" : "food";
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1A0A0A),
         title: const Icon(LucideIcons.alertCircle, color: Colors.redAccent),
-        content: Text("$message ($category type)", textAlign: TextAlign.center, style: const TextStyle(color: Colors.white)),
+        content: Text(message, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("CANCEL")),
           ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent), onPressed: () { onConfirm(); Navigator.pop(ctx); }, child: const Text("PROCEED")),
@@ -427,8 +466,7 @@ class FoodTrackerScreen extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF161B1E),
-        title: const Text("Reset Page?", style: TextStyle(color: Colors.white)),
-        content: const Text("This will clear all intake logs and settings.", style: TextStyle(color: Colors.white70)),
+        title: const Text("Reset?", style: TextStyle(color: Colors.white)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("NO")),
           TextButton(onPressed: () { ref.read(foodTrackerProvider.notifier).reset(); Navigator.pop(ctx); }, child: const Text("YES", style: TextStyle(color: Colors.redAccent))),
@@ -437,10 +475,10 @@ class FoodTrackerScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildScanningOverlay() => Container(color: Colors.black87, child: const Center(child: CircularProgressIndicator(color: Colors.cyanAccent)));
-
   void _openTargetSheet(BuildContext context, WidgetRef ref, FoodTrackerState s) {
     final c = TextEditingController(text: s.calorieTarget.toString());
-    showModalBottomSheet(context: context, backgroundColor: const Color(0xFF161B1E), builder: (_) => Padding(padding: const EdgeInsets.all(24), child: Column(mainAxisSize: MainAxisSize.min, children: [TextField(controller: c, keyboardType: TextInputType.number, style: const TextStyle(color: Colors.white)), ElevatedButton(onPressed: () { ref.read(foodTrackerProvider.notifier).setTarget(int.parse(c.text)); Navigator.pop(context); }, child: const Text("SAVE"))])));
+    showModalBottomSheet(context: context, backgroundColor: const Color(0xFF161B1E), builder: (_) => Padding(padding: const EdgeInsets.all(24), child: Column(mainAxisSize: MainAxisSize.min, children: [TextField(controller: c, keyboardType: TextInputType.number, style: const TextStyle(color: Colors.white)), const SizedBox(height: 20), ElevatedButton(onPressed: () { ref.read(foodTrackerProvider.notifier).setTarget(int.parse(c.text)); Navigator.pop(context); }, child: const Text("SAVE"))])));
   }
+
+  Widget _buildScanningOverlay() => Container(color: Colors.black87, child: const Center(child: CircularProgressIndicator(color: Colors.cyanAccent)));
 }
