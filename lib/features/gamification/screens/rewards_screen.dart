@@ -40,9 +40,7 @@ class RewardsScreen extends ConsumerWidget {
             colors: AppThemes.getBackgroundGradient(currentTheme),
           ),
         ),
-        child: RainingIcons(
-          enabled: true, // Always raining for excitement!
-          child: SafeArea(
+        child: SafeArea(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(20),
               child: Column(
@@ -101,6 +99,30 @@ class RewardsScreen extends ConsumerWidget {
                         isSelected: currentTheme == 'nature',
                         lockText: 'Lvl 10',
                       ),
+                      const SizedBox(width: 16),
+                      _buildThemeCard(
+                        context, 
+                        ref,
+                        id: 'sunset',
+                        name: 'Sunset Vibes',
+                        color: const Color(0xFFFF7E5F),
+                        icon: LucideIcons.sunset,
+                        isUnlocked: progress.unlockedThemes.contains('sunset'),
+                        isSelected: currentTheme == 'sunset',
+                        lockText: 'Lvl 15',
+                      ),
+                      const SizedBox(width: 16),
+                       _buildThemeCard(
+                        context, 
+                        ref,
+                        id: 'ocean',
+                        name: 'Deep Ocean',
+                        color: const Color(0xFF00D2FF),
+                        icon: LucideIcons.waves,
+                        isUnlocked: progress.unlockedThemes.contains('ocean'),
+                        isSelected: currentTheme == 'ocean',
+                        lockText: 'Lvl 20',
+                      ),
                     ].animate(interval: 100.ms).fadeIn().slideX(),
                   ),
                 ),
@@ -133,8 +155,7 @@ class RewardsScreen extends ConsumerWidget {
           ),
         ),
       ),
-    ), // Close Container
-    ); // Close Scaffold
+    );
   }
 
   Widget _buildLevelCard(dynamic progress) {

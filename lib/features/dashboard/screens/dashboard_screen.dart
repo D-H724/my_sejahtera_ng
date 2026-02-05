@@ -16,28 +16,35 @@ import 'package:my_sejahtera_ng/features/food_tracker/food_tracker_screen.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:my_sejahtera_ng/features/gamification/providers/quest_provider.dart';
+import 'package:my_sejahtera_ng/core/providers/theme_provider.dart';
+import 'package:my_sejahtera_ng/core/theme/app_themes.dart';
+import 'package:my_sejahtera_ng/core/widgets/raining_icons.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final currentTheme = ref.watch(themeProvider);
+
     return Scaffold(
       extendBodyBehindAppBar: true,
       body: Stack(
         children: [
-          // Animated Background
+          // Animated Background with Dynamic Theme
           Container(
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xFF0F2027), Color(0xFF203A43), Color(0xFF2C5364)],
+                colors: AppThemes.getBackgroundGradient(currentTheme),
               ),
             ),
           ).animate(onPlay: (c) => c.repeat(reverse: true))
-           .shimmer(duration: 3.seconds, color: Colors.white.withValues(alpha: 0.1), angle: 45)
            .saturate(duration: 5.seconds, begin: 1.0, end: 1.2),
+
+          // Raining Icons Effect (Moved from Rewards)
+          const RainingIcons(child: SizedBox.expand()),
 
           // Content
           SafeArea(

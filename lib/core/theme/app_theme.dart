@@ -22,6 +22,16 @@ class AppTheme {
   static const Color natPrimary = Color(0xFF8BC34A); // Light Green
   static const Color natAccent = Color(0xFF4CAF50); // Green
 
+  // Sunset Palette
+  static const Color sunBg = Color(0xFF2D142C);
+  static const Color sunPrimary = Color(0xFFEE4540); // Reddish
+  static const Color sunAccent = Color(0xFFC72C41); // Deep Red
+
+  // Ocean Palette
+  static const Color oceanBg = Color(0xFF00101F);
+  static const Color oceanPrimary = Color(0xFF007EA7);
+  static const Color oceanAccent = Color(0xFF00A8E8);
+
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
@@ -137,6 +147,66 @@ class AppTheme {
           backgroundColor: natPrimary,
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), // Softer corners
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        ),
+      ),
+    );
+  }
+
+  static ThemeData get sunsetTheme {
+    return ThemeData(
+      useMaterial3: true,
+      scaffoldBackgroundColor: sunBg,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: sunPrimary,
+        primary: sunPrimary,
+        secondary: sunAccent,
+        brightness: Brightness.dark,
+        surface: Colors.black.withOpacity(0.4),
+      ),
+      textTheme: GoogleFonts.latoTextTheme(ThemeData.dark().textTheme),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: true,
+        iconTheme: IconThemeData(color: Colors.white),
+        titleTextStyle: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: sunPrimary,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), 
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        ),
+      ),
+    );
+  }
+
+  static ThemeData get oceanTheme {
+    return ThemeData(
+      useMaterial3: true,
+      scaffoldBackgroundColor: oceanBg,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: oceanPrimary,
+        primary: oceanPrimary,
+        secondary: oceanAccent,
+        brightness: Brightness.dark,
+        surface: Colors.black.withOpacity(0.5),
+      ),
+      textTheme: GoogleFonts.quicksandTextTheme(ThemeData.dark().textTheme),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: true,
+        iconTheme: IconThemeData(color: Colors.white),
+        titleTextStyle: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: oceanPrimary,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)), 
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
         ),
       ),

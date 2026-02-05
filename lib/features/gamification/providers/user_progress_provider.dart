@@ -67,6 +67,12 @@ class UserProgressNotifier extends Notifier<UserProgress> {
     if (level >= 10 && !newThemes.contains('nature')) {
       newThemes.add('nature');
     }
+    if (level >= 15 && !newThemes.contains('sunset')) {
+      newThemes.add('sunset');
+    }
+    if (level >= 20 && !newThemes.contains('ocean')) {
+      newThemes.add('ocean');
+    }
     
     if (level >= 15 && !newFrames.contains('neon_glow')) {
       newFrames.add('neon_glow');

@@ -23,6 +23,12 @@ class MyApp extends ConsumerWidget {
       case 'nature':
         themeData = AppTheme.natureTheme;
         break;
+      case 'sunset':
+        themeData = AppTheme.sunsetTheme;
+        break;
+      case 'ocean':
+        themeData = AppTheme.oceanTheme;
+        break;
       default:
         themeData = AppTheme.lightTheme;
     }
