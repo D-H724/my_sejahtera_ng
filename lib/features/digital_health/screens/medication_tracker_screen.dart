@@ -1,13 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:my_sejahtera_ng/core/widgets/glass_container.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:my_sejahtera_ng/features/digital_health/providers/medication_provider.dart';
+import 'package:my_sejahtera_ng/features/digital_health/screens/widgets/add_medication_sheet.dart';
 
-class MedicationTrackerScreen extends StatelessWidget {
+class MedicationTrackerScreen extends ConsumerWidget {
   const MedicationTrackerScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final medications = ref.watch(medicationProvider);
+
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -53,18 +59,25 @@ class MedicationTrackerScreen extends StatelessWidget {
                  .scale(duration: 600.ms, curve: Curves.elasticOut)
                  .fadeIn(duration: 400.ms),
                 const SizedBox(height: 24),
-                _buildDosageCard().animate().fadeIn().slideY(),
+                // Show next dose logic if needed, for now keeping static or first item
+                if (medications.isNotEmpty)
+                  _buildDosageCard(medications.first).animate().fadeIn().slideY()
+                else
+                   const SizedBox(height: 100, child: Center(child: Text("No medications added yet", style: TextStyle(color: Colors.white)))),
+
                 const SizedBox(height: 24),
                 Text("Your Meds", 
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 16),
                 Expanded(
-                  child: ListView(
-                    children: [
-                       _buildMedItem("Paracetamol", "500mg • Take 2", "After lunch"),
-                       _buildMedItem("Vitamin C", "1000mg • Take 1", "Morning"),
-                       _buildMedItem("Amoxicillin", "250mg • Take 1", "Evening"),
-                    ],
+                  child: medications.isEmpty 
+                  ? const Center(child: Text("Tap + to add medications", style: TextStyle(color: Colors.white70)))
+                  : ListView.builder(
+                    itemCount: medications.length,
+                    itemBuilder: (context, index) {
+                      final med = medications[index];
+                      return _buildMedItem(med.name, "${med.dosage} • Take ${med.pillsToTake}", DateFormat.jm().format(med.time));
+                    },
                   ),
                 ),
               ],
@@ -73,14 +86,22 @@ class MedicationTrackerScreen extends StatelessWidget {
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: (){},
+        onPressed: (){
+            showModalBottomSheet(
+              context: context,
+              isScrollControlled: true,
+              backgroundColor: Colors.transparent,
+              builder: (context) => const AddMedicationSheet(),
+            );
+        },
         backgroundColor: Colors.white,
         child: const Icon(LucideIcons.plus, color: Colors.teal),
       ),
     );
   }
 
-  Widget _buildDosageCard() {
+  Widget _buildDosageCard(dynamic medication) {
+    // using dynamic to avoid import issues if type not fully resolved yet, but should be Medication
     return GlassContainer(
       padding: const EdgeInsets.all(24),
       borderRadius: BorderRadius.circular(24),
@@ -92,12 +113,12 @@ class MedicationTrackerScreen extends StatelessWidget {
               children: [
                  const Text("Next Dose", style: TextStyle(color: Colors.white70)),
                  const SizedBox(height: 8),
-                 const Text("2:00 PM", style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold)),
+                 Text(DateFormat.jm().format(medication.time), style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold)),
                  const SizedBox(height: 8),
                  Container(
                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                    decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(8)),
-                   child: const Text("Paracetamol (500mg)", style: TextStyle(color: Colors.white)),
+                   child: Text("${medication.name} (${medication.dosage})", style: const TextStyle(color: Colors.white)),
                  )
               ],
             ),
