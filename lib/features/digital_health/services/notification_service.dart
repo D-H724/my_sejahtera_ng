@@ -1,14 +1,14 @@
 
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:timezone/timezone.dart' as tz;
-import 'package:timezone/data/latest.dart' as tz;
+import 'package:timezone/data/latest.dart' as tzd;
+import 'package:timezone/timezone.dart' as tzt;
 
 class NotificationService {
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
 
   Future<void> init() async {
-    tz.initializeTimeZones();
+    tzd.initializeTimeZones();
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/ic_launcher');
     
@@ -59,10 +59,10 @@ class NotificationService {
     );
   }
 
-  tz.TZDateTime _nextInstanceOfTime(DateTime time) {
-    final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
-    tz.TZDateTime scheduledDate = tz.TZDateTime(
-        tz.local, now.year, now.month, now.day, time.hour, time.minute);
+  tzt.TZDateTime _nextInstanceOfTime(DateTime time) {
+    final tzt.TZDateTime now = tzt.TZDateTime.now(tzt.local);
+    tzt.TZDateTime scheduledDate = tzt.TZDateTime(
+        tzt.local, now.year, now.month, now.day, time.hour, time.minute);
     if (scheduledDate.isBefore(now)) {
       scheduledDate = scheduledDate.add(const Duration(days: 1));
     }

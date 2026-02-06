@@ -3,8 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:my_sejahtera_ng/core/providers/theme_provider.dart';
 import 'package:my_sejahtera_ng/core/screens/splash_screen.dart';
 import 'package:my_sejahtera_ng/core/theme/app_theme.dart';
+import 'package:my_sejahtera_ng/features/digital_health/services/notification_service.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await NotificationService().init();
   runApp(const ProviderScope(child: MyApp()));
 }
 

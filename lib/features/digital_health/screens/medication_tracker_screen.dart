@@ -7,7 +7,6 @@ import 'package:my_sejahtera_ng/features/digital_health/models/medication.dart';
 import 'package:my_sejahtera_ng/features/digital_health/services/notification_service.dart';
 import 'package:my_sejahtera_ng/features/digital_health/screens/widgets/add_medication_sheet.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:timezone/data/latest.dart' as tz;
 import 'package:my_sejahtera_ng/core/providers/theme_provider.dart';
 import 'package:my_sejahtera_ng/core/theme/app_themes.dart';
 
@@ -25,7 +24,6 @@ class _MedicationTrackerScreenState extends ConsumerState<MedicationTrackerScree
   @override
   void initState() {
     super.initState();
-    _notificationService.init();
   }
 
   Future<void> _addMedication(Medication medication) async {
