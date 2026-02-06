@@ -9,6 +9,7 @@ import 'package:my_sejahtera_ng/features/digital_health/screens/widgets/add_medi
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:my_sejahtera_ng/core/providers/theme_provider.dart';
 import 'package:my_sejahtera_ng/core/theme/app_themes.dart';
+import 'package:my_sejahtera_ng/features/gamification/providers/user_progress_provider.dart';
 
 class MedicationTrackerScreen extends ConsumerStatefulWidget {
   const MedicationTrackerScreen({super.key});
@@ -52,7 +53,12 @@ class _MedicationTrackerScreenState extends ConsumerState<MedicationTrackerScree
   void _toggleMedication(int index) {
       setState(() {
         final med = _medications[index];
-        _medications[index] = med.copyWith(isTaken: !med.isTaken);
+        final newIsTaken = !med.isTaken;
+        _medications[index] = med.copyWith(isTaken: newIsTaken);
+        
+        if (newIsTaken) {
+           ref.read(userProgressProvider.notifier).completeQuest('meds');
+        }
       });
   }
 

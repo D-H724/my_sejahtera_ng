@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:my_sejahtera_ng/core/theme/app_theme.dart';
+import 'package:my_sejahtera_ng/features/gamification/providers/user_progress_provider.dart';
 
-class CheckInScreen extends StatefulWidget {
+class CheckInScreen extends ConsumerStatefulWidget {
   const CheckInScreen({super.key});
 
   @override
-  State<CheckInScreen> createState() => _CheckInScreenState();
+  ConsumerState<CheckInScreen> createState() => _CheckInScreenState();
 }
 
-class _CheckInScreenState extends State<CheckInScreen> with SingleTickerProviderStateMixin {
+class _CheckInScreenState extends ConsumerState<CheckInScreen> with SingleTickerProviderStateMixin {
   late AnimationController _scannerController;
 
   @override
@@ -116,6 +118,10 @@ class _CheckInScreenState extends State<CheckInScreen> with SingleTickerProvider
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(content: Text("Check-in Successful!"), backgroundColor: Colors.green),
                             );
+                            
+                            // Trigger Quest
+                            ref.read(userProgressProvider.notifier).completeQuest('checkIn');
+                            
                             Navigator.pop(context);
                           },
                           icon: const Icon(LucideIcons.camera, color: Colors.black, size: 30),

@@ -7,6 +7,7 @@ import 'package:my_sejahtera_ng/features/gamification/providers/user_progress_pr
 import 'package:my_sejahtera_ng/core/providers/theme_provider.dart';
 import 'package:my_sejahtera_ng/core/theme/app_themes.dart';
 import 'package:sensors_plus/sensors_plus.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 class HoloIdCard extends ConsumerStatefulWidget {
   const HoloIdCard({super.key});
@@ -181,6 +182,14 @@ class _HoloIdCardState extends ConsumerState<HoloIdCard> with SingleTickerProvid
                               _buildBadge(context, "LVL ${progress.level}", themeColor),
                               const SizedBox(width: 8),
                               _buildBadge(context, "FULLY VACCINATED", accentColor),
+                              if (progress.hasDailyFlame) ...[
+                                const SizedBox(width: 8),
+                                const Icon(LucideIcons.flame, color: Colors.orangeAccent, size: 16)
+                                  .animate(onPlay: (c) => c.repeat(reverse: true))
+                                  .scale(begin: const Offset(1, 1), end: const Offset(1.3, 1.3))
+                                  .then()
+                                  .shimmer(duration: 1200.ms, color: Colors.yellow),
+                              ]
                             ],
                           )
                         ],

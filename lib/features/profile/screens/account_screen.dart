@@ -6,6 +6,8 @@ import 'package:my_sejahtera_ng/core/theme/app_theme.dart';
 import 'package:my_sejahtera_ng/core/widgets/glass_container.dart';
 import 'package:my_sejahtera_ng/features/auth/screens/login_screen.dart';
 import 'package:my_sejahtera_ng/features/gamification/screens/rewards_screen.dart';
+import 'package:my_sejahtera_ng/features/profile/screens/emergency_sos_screen.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 class AccountScreen extends ConsumerWidget {
   const AccountScreen({super.key});
@@ -94,6 +96,43 @@ class AccountScreen extends ConsumerWidget {
                           ),
                         ),
                       ),
+                      
+                      const SizedBox(height: 20),
+                      
+                      // NEW: Emergency SOS
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.push(context, MaterialPageRoute(builder: (context) => const EmergencySOSScreen()));
+                        },
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.redAccent.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.redAccent),
+                            boxShadow: [
+                              BoxShadow(color: Colors.redAccent.withOpacity(0.1), blurRadius: 10, spreadRadius: 2)
+                            ]
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: const [
+                              Icon(LucideIcons.siren, color: Colors.redAccent),
+                              SizedBox(width: 12),
+                              Text(
+                                "EMERGENCY MEDICAL CARD",
+                                style: TextStyle(
+                                  color: Colors.redAccent,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 16,
+                                  letterSpacing: 1.2
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ).animate(onPlay: (c) => c.repeat(reverse: true)).scale(duration: 2.seconds, begin: const Offset(1.0, 1.0), end: const Offset(1.02, 1.02)),
                       
                       const SizedBox(height: 30),
 

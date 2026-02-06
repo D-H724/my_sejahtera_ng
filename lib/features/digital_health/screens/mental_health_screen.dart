@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:my_sejahtera_ng/core/widgets/glass_container.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:my_sejahtera_ng/features/gamification/providers/user_progress_provider.dart';
 
-class MentalHealthScreen extends StatefulWidget {
+class MentalHealthScreen extends ConsumerStatefulWidget {
   const MentalHealthScreen({super.key});
 
   @override
-  State<MentalHealthScreen> createState() => _MentalHealthScreenState();
+  ConsumerState<MentalHealthScreen> createState() => _MentalHealthScreenState();
 }
 
-class _MentalHealthScreenState extends State<MentalHealthScreen> {
+class _MentalHealthScreenState extends ConsumerState<MentalHealthScreen> {
   int _selectedMood = 2; // 0-4
 
   @override
@@ -72,7 +74,10 @@ class _MentalHealthScreenState extends State<MentalHealthScreen> {
                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                      children: List.generate(5, (index) {
                        return GestureDetector(
-                         onTap: () => setState(() => _selectedMood = index),
+                         onTap: () {
+                           setState(() => _selectedMood = index);
+                           ref.read(userProgressProvider.notifier).completeQuest('mood');
+                         },
                          child: AnimatedContainer(
                            duration: 300.ms,
                            padding: const EdgeInsets.all(10),

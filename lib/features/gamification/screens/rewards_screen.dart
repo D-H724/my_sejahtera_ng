@@ -49,6 +49,70 @@ class RewardsScreen extends ConsumerWidget {
                 // Level Header
                 _buildLevelCard(progress).animate().fadeIn().slideY(),
                 const SizedBox(height: 30),
+
+                // NEW: Daily Health Quests
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(LucideIcons.flame, color: Colors.orangeAccent, size: 20),
+                        SizedBox(width: 8),
+                        Text("Daily Streak", style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.orangeAccent.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.orangeAccent),
+                      ),
+                      child: Text("${progress.currentStreak} Days", style: const TextStyle(color: Colors.orangeAccent, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ).animate().fadeIn(delay: 100.ms),
+                const SizedBox(height: 16),
+
+                GlassContainer(
+                  borderRadius: BorderRadius.circular(20),
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      _buildQuestRow(
+                        "Check In", 
+                        "Visit a location", 
+                        progress.hasCheckedIn, 
+                        LucideIcons.mapPin,
+                        Colors.blueAccent
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8),
+                        child: Divider(height: 1, color: Colors.white10),
+                      ),
+                      _buildQuestRow(
+                        "Take Meds", 
+                        "Stay on track", 
+                        progress.hasTakenMeds, 
+                        LucideIcons.pill,
+                        Colors.greenAccent
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8),
+                        child: Divider(height: 1, color: Colors.white10),
+                      ),
+                      _buildQuestRow(
+                        "Log Mood", 
+                        "Mental wellness check", 
+                        progress.hasLoggedMood, 
+                        LucideIcons.smile,
+                        Colors.purpleAccent
+                      ),
+                    ],
+                  ),
+                ).animate().fadeIn(delay: 200.ms).slideX(),
+                
+                const SizedBox(height: 30),
                 
                 Row(
                   children: [
@@ -56,7 +120,7 @@ class RewardsScreen extends ConsumerWidget {
                     const SizedBox(width: 8),
                     const Text("Themes", style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
                   ],
-                ).animate().fadeIn(delay: 200.ms),
+                ).animate().fadeIn(delay: 300.ms),
                 const SizedBox(height: 16),
                 
                 SizedBox(
@@ -311,6 +375,62 @@ class RewardsScreen extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildQuestRow(String title, String subtitle, bool isCompleted, IconData icon, Color color) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: color, size: 20),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title, 
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: const TextStyle(color: Colors.white54, fontSize: 12),
+              ),
+            ],
+          ),
+        ),
+        if (isCompleted)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.green.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.greenAccent),
+            ),
+            child: const Row(
+              children: [
+                Icon(LucideIcons.check, color: Colors.greenAccent, size: 14),
+                SizedBox(width: 4),
+                Text("DONE", style: TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold, fontSize: 10)),
+              ],
+            ),
+          ).animate().scale(curve: Curves.elasticOut)
+        else
+          Container(
+             width: 24, height: 24,
+             decoration: BoxDecoration(
+               border: Border.all(color: Colors.white24, width: 2),
+               shape: BoxShape.circle
+             ),
+          ),
+      ],
     );
   }
 }
