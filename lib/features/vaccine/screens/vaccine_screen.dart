@@ -1,115 +1,170 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:my_sejahtera_ng/core/theme/app_theme.dart';
 import 'package:my_sejahtera_ng/core/widgets/glass_container.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:my_sejahtera_ng/features/vaccine/screens/widgets/digital_cert_card.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
-class VaccineScreen extends StatelessWidget {
+class VaccineScreen extends ConsumerWidget {
   const VaccineScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text("Digital Certificate"),
+        title: const Text(""), // Clean look
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         leading: const BackButton(color: Colors.white),
+        actions: [
+          IconButton(
+            icon: const Icon(LucideIcons.share2, color: Colors.white),
+            onPressed: () {},
+          )
+        ],
       ),
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFF003B70), Color(0xFF001A33)],
+            colors: [Color(0xFF0F2027), Color(0xFF2C5364)], // Deep premium dark
           ),
         ),
         child: SafeArea(
-          child: ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              _buildVaccineCard(
-                dose: "Dose 1",
-                date: "01 May 2021",
-                vaccineName: "Pfizer",
-                location: "PPV OFFSITE KSL",
-                batch: "EL1234",
-              ),
-              const SizedBox(height: 15),
-              _buildVaccineCard(
-                dose: "Dose 2",
-                date: "22 May 2021",
-                vaccineName: "Pfizer",
-                location: "BILIK MESYUARAT EKSEKUTIF PERPUSTAKAAN RAJA ZARITH SOFIAH UTM",
-                batch: "FA4567",
-              ),
-              const SizedBox(height: 15),
-              _buildVaccineCard(
-                dose: "Booster 1",
-                date: "10 Jan 2022",
-                vaccineName: "Pfizer",
-                location: "BILIK MESYUARAT EKSEKUTIF PERPUSTAKAAN RAJA ZARITH SOFIAH UTM",
-                batch: "GH7890",
-                isBooster: true,
-              ),
-              const SizedBox(height: 30),
-              Center(
-                child: SizedBox(
+          child: Column(
+             children: [
+               const SizedBox(height: 10),
+               // Title
+               Text("My Digital Certificate", style: GoogleFonts.outfit(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+               const SizedBox(height: 10),
+               
+               // Main Carousel Content
+               Expanded(
+                 child: PageView(
+                   controller: PageController(viewportFraction: 0.85),
+                   physics: const BouncingScrollPhysics(),
+                   children: [
+                     // Card 1: The Main Certificate
+                     const Padding(
+                       padding: EdgeInsets.symmetric(horizontal: 10, vertical: 20),
+                       child: Center(child: DigitalCertCard()),
+                     ).animate().scale(duration: 600.ms, curve: Curves.easeOutBack),
+                     
+                     // Card 2: Dose Details
+                     Padding(
+                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
+                       child: Center(child: _buildDoseHistoryCard()),
+                     ),
+                   ],
+                 ),
+               ),
+               
+               const SizedBox(height: 20),
+               
+               // Indicators (Dots)
+               Row(
+                 mainAxisAlignment: MainAxisAlignment.center,
+                 children: [
+                   Container(width: 8, height: 8, decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle)),
+                   const SizedBox(width: 8),
+                   Container(width: 8, height: 8, decoration: BoxDecoration(color: Colors.white.withOpacity(0.3), shape: BoxShape.circle)),
+                 ],
+               ),
+               
+               const SizedBox(height: 30),
+               
+               // Action Button
+               Padding(
+                 padding: const EdgeInsets.symmetric(horizontal: 40),
+                 child: SizedBox(
                    width: double.infinity,
                    child: ElevatedButton.icon(
+                     style: ElevatedButton.styleFrom(
+                       backgroundColor: Colors.white.withOpacity(0.1),
+                       foregroundColor: Colors.white,
+                       padding: const EdgeInsets.symmetric(vertical: 16),
+                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30), side: const BorderSide(color: Colors.white30))
+                     ),
                      onPressed: () {}, 
                      icon: const Icon(LucideIcons.download),
-                     label: const Text("Generate PDF Certificate"),
+                     label: const Text("Export PDF"),
                    ),
-                ),
-              )
-            ],
+                 ),
+               ),
+               const SizedBox(height: 20),
+             ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildVaccineCard({
-    required String dose,
-    required String date,
-    required String vaccineName,
-    required String location,
-    required String batch,
-    bool isBooster = false,
-  }) {
+  Widget _buildDoseHistoryCard() {
     return GlassContainer(
+      height: 500,
       width: double.infinity,
-      color: isBooster ? AppTheme.accentTeal.withValues(alpha: 0.1) : Colors.white.withValues(alpha: 0.1),
+      color: Colors.white.withOpacity(0.05),
+      borderRadius: BorderRadius.circular(30),
+      padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(dose, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
-              const Icon(LucideIcons.shieldCheck, color: Colors.greenAccent),
+              const Icon(LucideIcons.history, color: Colors.blueAccent),
+              const SizedBox(width: 10),
+              Text("VACCINATION RECORD", style: GoogleFonts.shareTechMono(color: Colors.blueAccent, fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1)),
             ],
           ),
-          const Divider(color: Colors.white24),
-          const SizedBox(height: 10),
-          _buildRow("Date", date),
-          _buildRow("Vaccine", vaccineName),
-          _buildRow("Batch", batch),
-          _buildRow("Location", location),
+          const SizedBox(height: 24),
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                 _buildDoseItem("1", "Pfizer", "01 May 2021", "PPV OFFSITE KSL", "EL1234"),
+                 const Divider(color: Colors.white10, height: 30),
+                 _buildDoseItem("2", "Pfizer", "22 May 2021", "PPV UTM", "FA4567"),
+                 const Divider(color: Colors.white10, height: 30),
+                 _buildDoseItem("3", "Pfizer (Booster)", "10 Jan 2022", "PPV UTM", "GH7890"),
+              ],
+            ),
+          )
         ],
       ),
     );
   }
 
-  Widget _buildRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(width: 80, child: Text(label, style: const TextStyle(color: Colors.white60))),
-          Expanded(child: Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500))),
-        ],
-      ),
-    );
+  Widget _buildDoseItem(String num, String name, String date, String loc, String batch) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text("DOSE $num", style: GoogleFonts.outfit(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold)),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(color: Colors.green.withOpacity(0.2), borderRadius: BorderRadius.circular(4)),
+              child: const Text("COMPLETED", style: TextStyle(color: Colors.greenAccent, fontSize: 10, fontWeight: FontWeight.bold)),
+            )
+          ],
+        ),
+        const SizedBox(height: 5),
+        Text(name, style: GoogleFonts.outfit(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+        Text(date, style: GoogleFonts.outfit(color: Colors.cyanAccent, fontSize: 14)),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            const Icon(LucideIcons.mapPin, size: 12, color: Colors.white30),
+            const SizedBox(width: 4),
+            Expanded(child: Text(loc, style: const TextStyle(color: Colors.white38, fontSize: 12), overflow: TextOverflow.ellipsis)),
+          ],
+        ),
+        Text("Batch: $batch", style: const TextStyle(color: Colors.white38, fontSize: 12)),
+      ],
+    ).animate().fadeIn().slideX();
   }
 }

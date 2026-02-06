@@ -4,6 +4,8 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:my_sejahtera_ng/core/widgets/glass_container.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class HotspotScreen extends StatefulWidget {
   const HotspotScreen({super.key});
@@ -210,44 +212,52 @@ class _HotspotScreenState extends State<HotspotScreen> {
                           ),
                         ),
                       ),
-            
-                      // Status Panel
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                        child: Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.redAccent.shade700, // Solid opaque red
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.3),
-                                blurRadius: 8,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(LucideIcons.alertTriangle,
-                                  color: Colors.white),
-                              const SizedBox(width: 15),
-                              Expanded(
-                                child: Text(
-                                  "High risk areas detected nearby. Please exercise caution.",
-                                  style: TextStyle(
-                                    color: Colors.white, 
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
                     ],
                   ),
                 ),
+
+                // Glass Overlay Controls
+                Positioned(
+                  bottom: 40,
+                  left: 20,
+                  right: 20,
+                  child: GlassContainer(
+                    borderRadius: BorderRadius.circular(24),
+                    padding: const EdgeInsets.all(20),
+                    color: Colors.black.withOpacity(0.6), // Dark glass
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(LucideIcons.alertTriangle, color: Colors.redAccent),
+                            const SizedBox(width: 10),
+                            Text("High Risk Areas Detected", style: GoogleFonts.outfit(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          "You are currently in a generic safe zone. However, there are ${_hotspots.length} hotspots reported within 10km radius.",
+                          style: GoogleFonts.outfit(color: Colors.white70, fontSize: 14),
+                        ),
+                        const SizedBox(height: 20),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: (){},
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.redAccent,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                              padding: const EdgeInsets.symmetric(vertical: 15)
+                            ),
+                            child: const Text("View Details"),
+                          ),
+                        )
+                      ],
+                    ),
+                  ),
+                )
               ],
             ),
     );

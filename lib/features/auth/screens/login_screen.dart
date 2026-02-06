@@ -45,7 +45,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final dummyUser = UserSession(
       id: 9999, // Dummy ID
       username: _usernameController.text,
-      fullName: "Citizen ${_usernameController.text}", // Dummy Full Name
+      fullName: _usernameController.text, // Dummy Full Name
       icNumber: "900101-14-1234", // Dummy IC
       phone: "+6012-3456789", // Dummy Phone
     );

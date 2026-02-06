@@ -11,7 +11,7 @@ import 'package:my_sejahtera_ng/features/health_assistant/screens/ai_chat_screen
 import 'package:my_sejahtera_ng/features/hotspots/screens/hotspot_screen.dart';
 import 'package:my_sejahtera_ng/features/profile/screens/account_screen.dart';
 import 'package:my_sejahtera_ng/features/vaccine/screens/vaccine_screen.dart';
-import 'package:my_sejahtera_ng/features/digital_health/screens/digital_health_screen.dart';
+import 'package:my_sejahtera_ng/features/digital_health/screens/health_dashboard_screen.dart';
 import 'package:my_sejahtera_ng/features/food_tracker/food_tracker_screen.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -297,7 +297,7 @@ class DashboardScreen extends ConsumerWidget {
               targetScreen = const HotspotScreen();
               questActionId = 'nav_hotspots';
             } else if (label == 'Health') {
-              targetScreen = const DigitalHealthScreen();
+              targetScreen = const HealthDashboardScreen();
             } else if (label == 'Food Intake Monitor') {
               targetScreen = FoodTrackerScreen();
             } else {

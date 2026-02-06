@@ -19,7 +19,7 @@ class RewardsScreen extends ConsumerWidget {
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('Rewards & Style'),
+        title: const Text('Rewards & Style', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 24, shadows: [Shadow(color: Colors.black45, blurRadius: 10)])),
         centerTitle: true,
         backgroundColor: Colors.transparent,
         actions: [

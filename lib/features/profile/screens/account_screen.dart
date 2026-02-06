@@ -19,7 +19,7 @@ class AccountScreen extends ConsumerWidget {
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text("My Profile"),
+        title: const Text("My Profile", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 22, shadows: [Shadow(color: Colors.black45, blurRadius: 5)])),
         leading: IconButton(
           icon: const Icon(LucideIcons.arrowLeft, color: Colors.white),
           onPressed: () => Navigator.pop(context),
@@ -86,7 +86,7 @@ class AccountScreen extends ConsumerWidget {
                               const Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text("Rewards & Customization", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                  Text("Rewards & Customization", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
                                   Text("Themes, Frames, Icons", style: TextStyle(color: Colors.white70, fontSize: 12)),
                                 ],
                               ),

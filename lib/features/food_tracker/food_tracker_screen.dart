@@ -2,7 +2,7 @@ import 'dart:math'; // For random suggestions
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:flutter_riverpod/legacy.dart' show StateNotifierProvider, StateNotifier;
+// import 'package:flutter_riverpod/legacy.dart' show StateNotifierProvider, StateNotifier; // Removed invalid import
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:my_sejahtera_ng/core/widgets/glass_container.dart';
@@ -124,17 +124,26 @@ class FoodTrackerScreen extends ConsumerWidget {
     final randomSuggestion = suggestions[Random().nextInt(suggestions.length)];
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0F12),
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: const Text("FOOD INTAKE TRACKER", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.amberAccent)),
         backgroundColor: Colors.transparent,
         elevation: 0,
+        leading: const BackButton(color: Colors.white),
         actions: [
           _buildConfigMenu(context, ref, state),
         ],
       ),
-      body: Stack(
-        children: [
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFF0F2027), Color(0xFF2C5364)],
+          ),
+        ),
+        child: Stack(
+          children: [
           SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Column(
@@ -166,6 +175,7 @@ class FoodTrackerScreen extends ConsumerWidget {
           if (state.isScanning) _buildScanningOverlay(),
         ],
       ),
+    ),
     );
   }
 
