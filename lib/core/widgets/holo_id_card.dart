@@ -172,27 +172,35 @@ class _HoloIdCardState extends ConsumerState<HoloIdCard> with SingleTickerProvid
                         child: const Icon(LucideIcons.user, color: Colors.white, size: 30),
                       ),
                       const SizedBox(width: 16),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text("SHANJAAY DHIVIYAN THARA", style: GoogleFonts.outfit(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              _buildBadge(context, "LVL ${progress.level}", themeColor),
-                              const SizedBox(width: 8),
-                              _buildBadge(context, "FULLY VACCINATED", accentColor),
-                              if (progress.hasDailyFlame) ...[
-                                const SizedBox(width: 8),
-                                const Icon(LucideIcons.flame, color: Colors.orangeAccent, size: 16)
-                                  .animate(onPlay: (c) => c.repeat(reverse: true))
-                                  .scale(begin: const Offset(1, 1), end: const Offset(1.3, 1.3))
-                                  .then()
-                                  .shimmer(duration: 1200.ms, color: Colors.yellow),
-                              ]
-                            ],
-                          )
-                        ],
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center, // Center vertically
+                          children: [
+                            Text(
+                              "SHANJAAY DHIVIYAN THARA", 
+                              style: GoogleFonts.outfit(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                            const SizedBox(height: 4),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 4,
+                              children: [
+                                _buildBadge(context, "LVL ${progress.level}", themeColor),
+                                _buildBadge(context, "FULLY VACCINATED", accentColor),
+                                if (progress.hasDailyFlame) ...[
+                                  const Icon(LucideIcons.flame, color: Colors.orangeAccent, size: 16)
+                                    .animate(onPlay: (c) => c.repeat(reverse: true))
+                                    .scale(begin: const Offset(1, 1), end: const Offset(1.3, 1.3))
+                                    .then()
+                                    .shimmer(duration: 1200.ms, color: Colors.yellow),
+                                ]
+                              ],
+                            )
+                          ],
+                        ),
                       ),
                     ],
                   ),
