@@ -20,6 +20,10 @@ class HealthVitalsScreen extends ConsumerWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: const BackButton(color: Colors.white),
+        actions: [
+          _buildConnectionToggle(context, ref, vitals.isDeviceConnected),
+          const SizedBox(width: 16),
+        ],
       ),
       body: Container(
         width: double.infinity,
@@ -60,6 +64,10 @@ class HealthVitalsScreen extends ConsumerWidget {
                  .fadeIn(duration: 400.ms),
                  
                 const SizedBox(height: 10),
+                 
+                const SizedBox(height: 10),
+                
+                // Always show BMI Status
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
@@ -70,14 +78,42 @@ class HealthVitalsScreen extends ConsumerWidget {
                   child: Text("BMI Status: ${vitals.bmiStatus}", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                 ).animate().fadeIn(delay: 600.ms),
 
+                const SizedBox(height: 16),
+
+                // Show Live Data Indicator if Connected
+                if (vitals.isDeviceConnected) ...[
+                   Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.greenAccent.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.greenAccent),
+                      boxShadow: [BoxShadow(color: Colors.greenAccent.withOpacity(0.2), blurRadius: 10)]
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(LucideIcons.activity, color: Colors.greenAccent, size: 16)
+                          .animate(onPlay: (c) => c.repeat()).fade(duration: 1.seconds),
+                        const SizedBox(width: 8),
+                        const Text("LIVE DEVICE DATA", style: TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+                      ],
+                    ),
+                  ).animate().fadeIn(duration: 500.ms).slideY(begin: -0.5),
+                  const SizedBox(height: 16),
+                ],
+
                 const SizedBox(height: 24),
                 _buildChartCard(context, ref, "Heart Rate", "${vitals.heartRate} bpm", Colors.redAccent, LucideIcons.heart, [70, 72, 75, 73, 78, 74, vitals.heartRate.toDouble()], 
-                  onTap: () => _showUpdateSheet(context, ref, "Heart Rate", (val) => ref.read(vitalsProvider.notifier).updateHeartRate(int.parse(val)))),
+                  isLive: vitals.isDeviceConnected,
+                  onTap: () => _handleCardTap(context, ref, vitals.isDeviceConnected, "Heart Rate", (val) => ref.read(vitalsProvider.notifier).updateHeartRate(int.parse(val)))),
                 const SizedBox(height: 20),
                 _buildChartCard(context, ref, "Blood Pressure", "${vitals.systolicBP}/${vitals.diastolicBP} mmHg", Colors.blueAccent, LucideIcons.activity, [118, 120, 119, 121, 122, 120, vitals.systolicBP.toDouble()],
-                  onTap: () => _updateBP(context, ref)), // Special case for BP
+                  isLive: vitals.isDeviceConnected,
+                  onTap: () => vitals.isDeviceConnected ? _showDeviceToast(context) : _updateBP(context, ref)), 
                 const SizedBox(height: 20),
                  _buildChartCard(context, ref, "Weight", "${vitals.weight} kg", Colors.orangeAccent, LucideIcons.scale, [66, 65.8, 65.5, 65.3, 65.1, 65.0, vitals.weight],
+                   // Allow manual update for weight even if connected, usually scales are separate
                    onTap: () => _showUpdateSheet(context, ref, "Weight (kg)", (val) => ref.read(vitalsProvider.notifier).updateWeight(double.parse(val)))),
                 const SizedBox(height: 20),
                  _buildChartCard(context, ref, "Height", "${vitals.height} cm", Colors.purpleAccent, LucideIcons.ruler, [175, 175, 175, 175, 175, 175, vitals.height],
@@ -87,6 +123,54 @@ class HealthVitalsScreen extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildConnectionToggle(BuildContext context, WidgetRef ref, bool isConnected) {
+    return GestureDetector(
+      onTap: () {
+        ref.read(vitalsProvider.notifier).toggleDeviceConnection(!isConnected);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(isConnected ? "Device Disconnected. Switched to Manual Mode." : "Smart Watch Connected! Receiving Live Data..."),
+            backgroundColor: isConnected ? Colors.redAccent : Colors.green,
+            duration: const Duration(seconds: 2),
+          )
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isConnected ? Colors.green.withOpacity(0.2) : Colors.white10,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: isConnected ? Colors.greenAccent : Colors.white24),
+        ),
+        child: Row(
+          children: [
+            Icon(isConnected ? LucideIcons.watch : LucideIcons.watch, color: isConnected ? Colors.greenAccent : Colors.white54, size: 18),
+            const SizedBox(width: 8),
+            Text(isConnected ? "Connected" : "Connect Device", style: TextStyle(color: isConnected ? Colors.greenAccent : Colors.white70, fontWeight: FontWeight.bold, fontSize: 12)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _handleCardTap(BuildContext context, WidgetRef ref, bool isConnected, String title, Function(String) onSave) {
+    if (isConnected) {
+      _showDeviceToast(context);
+    } else {
+      _showUpdateSheet(context, ref, title, onSave);
+    }
+  }
+
+  void _showDeviceToast(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("Reading from Smart Watch... Disable connection for manual input."),
+        backgroundColor: Colors.blueGrey,
+        duration: Duration(seconds: 2),
+      )
     );
   }
 
@@ -184,7 +268,7 @@ class HealthVitalsScreen extends ConsumerWidget {
       ));
   }
 
-  Widget _buildChartCard(BuildContext context, WidgetRef ref, String title, String value, Color color, IconData icon, List<double> dataPoints, {VoidCallback? onTap}) {
+  Widget _buildChartCard(BuildContext context, WidgetRef ref, String title, String value, Color color, IconData icon, List<double> dataPoints, {VoidCallback? onTap, bool isLive = false}) {
     return GestureDetector(
       onTap: onTap,
       child: GlassContainer(
@@ -199,7 +283,10 @@ class HealthVitalsScreen extends ConsumerWidget {
                 const SizedBox(width: 10),
                 Text(title, style: const TextStyle(color: Colors.white70, fontSize: 16)),
                 const Spacer(),
-                const Icon(LucideIcons.edit2, size: 14, color: Colors.white30),
+                if (isLive)
+                  const Icon(LucideIcons.radio, size: 14, color: Colors.greenAccent).animate(onPlay: (c) => c.repeat()).fade()
+                else
+                  const Icon(LucideIcons.edit2, size: 14, color: Colors.white30),
               ],
             ),
             const SizedBox(height: 10),
@@ -232,6 +319,8 @@ class HealthVitalsScreen extends ConsumerWidget {
                   minY: dataPoints.reduce((a, b) => a < b ? a : b) * 0.95,
                   maxY: dataPoints.reduce((a, b) => a > b ? a : b) * 1.05,
                 ),
+                duration: const Duration(milliseconds: 300), // Smooth transition
+                curve: Curves.easeInOut,
               ),
             ),
           ],

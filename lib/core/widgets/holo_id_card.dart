@@ -172,13 +172,6 @@ class _HoloIdCardState extends ConsumerState<HoloIdCard> with SingleTickerProvid
                               children: [
                                 _buildBadge(context, "LVL ${progress.level}", themeColor),
                                 _buildBadge(context, "FULLY VACCINATED", accentColor),
-                                if (progress.hasDailyFlame) ...[
-                                  const Icon(LucideIcons.flame, color: Colors.orangeAccent, size: 16)
-                                    .animate(onPlay: (c) => c.repeat(reverse: true))
-                                    .scale(begin: const Offset(1, 1), end: const Offset(1.3, 1.3))
-                                    .then()
-                                    .shimmer(duration: 1200.ms, color: Colors.yellow),
-                                ]
                               ],
                             )
                           ],

@@ -1,6 +1,9 @@
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:lucide_icons/lucide_icons.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:my_sejahtera_ng/features/digital_health/models/medication.dart';
 
 class AddMedicationSheet extends StatefulWidget {
@@ -33,6 +36,20 @@ class _AddMedicationSheetState extends State<AddMedicationSheet> {
     final TimeOfDay? picked = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.fromDateTime(_selectedTime),
+      builder: (context, child) {
+        return Theme(
+          data: ThemeData.dark().copyWith(
+            colorScheme: const ColorScheme.dark(
+              primary: Colors.blueAccent,
+              onPrimary: Colors.white,
+              surface: Color(0xFF1E1E1E),
+              onSurface: Colors.white,
+            ),
+            dialogBackgroundColor: const Color(0xFF1E1E1E),
+          ),
+          child: child!,
+        );
+      },
     );
     if (picked != null) {
       setState(() {
@@ -48,85 +65,137 @@ class _AddMedicationSheetState extends State<AddMedicationSheet> {
     return Container(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
-        left: 20,
-        right: 20,
-        top: 20,
+        left: 24,
+        right: 24,
+        top: 24,
       ),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F2027).withOpacity(0.95), // Deep dark background
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+        border: Border(top: BorderSide(color: Colors.white.withOpacity(0.1), width: 1)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blueAccent.withOpacity(0.2),
+            blurRadius: 20,
+            offset: const Offset(0, -5),
+          )
+        ]
       ),
       child: Form(
         key: _formKey,
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text("Add Medication",
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 20),
-              TextFormField(
-                controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: "Medicine Name (e.g., Paracetamol)",
-                  border: OutlineInputBorder(),
+              // Header
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
-                validator: (value) =>
-                    value == null || value.isEmpty ? 'Please enter name' : null,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 20),
+              Text(
+                "Add Medication",
+                style: GoogleFonts.outfit(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+              ).animate().fadeIn().slideY(begin: 0.3),
+              const SizedBox(height: 5),
+              Text(
+                "Set reminders to stay on track.",
+                style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 14),
+              ).animate().fadeIn().slideY(begin: 0.3, delay: 100.ms),
+              const SizedBox(height: 30),
+
+              // Inputs
+              _buildModernTextField(
+                controller: _nameController,
+                label: "Medicine Name",
+                hint: "e.g., Paracetamol",
+                icon: LucideIcons.pill,
+                validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+              ).animate().fadeIn().slideX(delay: 200.ms),
+              
+              const SizedBox(height: 16),
+              
               Row(
                 children: [
                   Expanded(
-                    child: TextFormField(
+                    child: _buildModernTextField(
                       controller: _dosageController,
-                      decoration: const InputDecoration(
-                        labelText: "Dosage (e.g., 500mg)",
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) =>
-                          value == null || value.isEmpty ? 'Required' : null,
+                      label: "Dosage",
+                      hint: "e.g., 500mg",
+                      icon: LucideIcons.flaskConical,
+                      validator: (v) => v == null || v.isEmpty ? 'Required' : null,
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 16),
                   Expanded(
-                    child: TextFormField(
+                    child: _buildModernTextField(
                       controller: _pillsController,
-                      decoration: const InputDecoration(
-                        labelText: "Pills Count",
-                        border: OutlineInputBorder(),
-                      ),
+                      label: "Quantity",
+                      hint: "Count",
+                      icon: LucideIcons.hash,
                       keyboardType: TextInputType.number,
-                      validator: (value) =>
-                          value == null || value.isEmpty ? 'Required' : null,
+                      validator: (v) => v == null || v.isEmpty ? 'Required' : null,
                     ),
                   ),
                 ],
-              ),
-              const SizedBox(height: 12),
+              ).animate().fadeIn().slideX(delay: 300.ms),
+              
+              const SizedBox(height: 16),
+              
+              // Time Picker Card
               GestureDetector(
                 onTap: () => _selectTime(context),
-                child: AbsorbPointer(
-                  child: TextFormField(
-                    controller: TextEditingController(
-                        text: DateFormat.jm().format(_selectedTime)),
-                    decoration: const InputDecoration(
-                      labelText: "Time to Take",
-                      border: OutlineInputBorder(),
-                      suffixIcon: Icon(Icons.access_time),
-                    ),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.white10),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(LucideIcons.clock, color: Colors.blueAccent),
+                      const SizedBox(width: 16),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text("Time to Take", style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12)),
+                          Text(
+                            DateFormat.jm().format(_selectedTime),
+                            style: GoogleFonts.outfit(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                      const Spacer(),
+                      const Icon(LucideIcons.chevronDown, color: Colors.white24),
+                    ],
                   ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
+              ).animate().fadeIn().slideX(delay: 400.ms),
+              
+              const SizedBox(height: 16),
+              
+              _buildModernTextField(
                 controller: _instructionsController,
-                decoration: const InputDecoration(
-                  labelText: "Instructions (e.g., After lunch)",
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 24),
+                label: "Instructions (Optional)",
+                hint: "e.g., After lunch",
+                icon: LucideIcons.fileText,
+              ).animate().fadeIn().slideX(delay: 500.ms),
+
+              const SizedBox(height: 40),
+
+              // Save Button
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -145,16 +214,66 @@ class _AddMedicationSheetState extends State<AddMedicationSheet> {
                     }
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF11998e),
+                    backgroundColor: Colors.blueAccent,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    padding: const EdgeInsets.symmetric(vertical: 20),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    elevation: 5,
+                    shadowColor: Colors.blueAccent.withOpacity(0.5),
                   ),
-                  child: const Text("Save Medication"),
+                  child: Text(
+                    "Save & Notify Me",
+                    style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 20),
+              ).animate().fadeIn().scale(delay: 600.ms),
+              
+              const SizedBox(height: 40),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModernTextField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    required IconData icon,
+    TextInputType? keyboardType,
+    String? Function(String?)? validator,
+  }) {
+    return TextFormField(
+      controller: controller,
+      keyboardType: keyboardType,
+      validator: validator,
+      style: const TextStyle(color: Colors.white),
+      decoration: InputDecoration(
+        filled: true,
+        fillColor: Colors.white.withOpacity(0.05),
+        labelText: label,
+        labelStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
+        hintText: hint,
+        hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+        prefixIcon: Icon(icon, color: Colors.white54),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: Colors.white10),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: Colors.blueAccent),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: Colors.redAccent),
         ),
       ),
     );

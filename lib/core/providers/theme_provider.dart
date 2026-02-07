@@ -7,10 +7,8 @@ class ThemeNotifier extends Notifier<String> {
     return 'default';
   }
 
-  void setTheme(String themeId, UserProgress progress) {
-    if (progress.unlockedThemes.contains(themeId)) {
-      state = themeId;
-    }
+  void setTheme(String themeId) {
+    state = themeId;
   }
 }
 
