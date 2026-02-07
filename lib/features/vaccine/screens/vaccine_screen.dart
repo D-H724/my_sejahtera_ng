@@ -5,6 +5,8 @@ import 'package:my_sejahtera_ng/core/widgets/glass_container.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:my_sejahtera_ng/features/vaccine/screens/widgets/digital_cert_card.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:my_sejahtera_ng/core/providers/user_provider.dart';
+import 'package:my_sejahtera_ng/features/vaccine/services/pdf_service.dart';
 
 class VaccineScreen extends ConsumerWidget {
   const VaccineScreen({super.key});
@@ -88,7 +90,31 @@ class VaccineScreen extends ConsumerWidget {
                        padding: const EdgeInsets.symmetric(vertical: 16),
                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30), side: const BorderSide(color: Colors.white30))
                      ),
-                     onPressed: () {}, 
+                     onPressed: () async {
+                        final user = ref.read(userProvider);
+                        if (user != null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text("Generating PDF... Please wait.")),
+                          );
+                          try {
+                            print("Starting PDF generation for user: ${user.fullName}");
+                            await PdfService().generateAndShareCertificate(user);
+                            print("PDF generation completed.");
+                          } catch (e, stack) {
+                            print("Error generating PDF: $e\n$stack");
+                             if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text("Error: $e")),
+                              );
+                            }
+                          }
+                        } else {
+                          print("User is null!");
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text("Error: User not logged in found.")),
+                          );
+                        }
+                     }, 
                      icon: const Icon(LucideIcons.download),
                      label: const Text("Export PDF"),
                    ),

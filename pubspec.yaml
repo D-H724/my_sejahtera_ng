@@ -55,6 +55,10 @@ dependencies:
   animated_text_kit: ^4.3.0
   flutter_tts: ^4.2.5
   qr_flutter: ^4.1.0
+  pdf: ^3.10.4
+  printing: ^5.11.0
+  path_provider: ^2.1.1
+  share_plus: ^7.1.0
 
 dev_dependencies:
   flutter_test:
