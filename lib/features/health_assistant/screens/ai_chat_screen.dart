@@ -87,7 +87,7 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
       await _flutterTts.setLanguage("en-US");
       await _flutterTts.setVolume(1.0);
       await _flutterTts.setPitch(1.0); 
-      await _flutterTts.setSpeechRate(1.0); // MAX SPEED
+      await _flutterTts.setSpeechRate(0.5); // Natural speed
       
       try {
         List<dynamic> voices = await _flutterTts.getVoices;
