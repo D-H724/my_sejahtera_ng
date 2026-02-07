@@ -1,10 +1,9 @@
-import 'dart:async';
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:my_sejahtera_ng/core/providers/user_provider.dart';
 import 'package:my_sejahtera_ng/core/theme/app_themes.dart';
 import 'package:my_sejahtera_ng/core/providers/theme_provider.dart';
 
@@ -16,56 +15,25 @@ class HealthInsightBanner extends ConsumerStatefulWidget {
 }
 
 class _HealthInsightBannerState extends ConsumerState<HealthInsightBanner> with SingleTickerProviderStateMixin {
-  int _currentTipIndex = 0;
-  late Timer _timer;
   late AnimationController _borderController;
-
-  final List<String> _healthTips = [
-    "Stay hydrated! Drink at least 8 glasses of water today.",
-    "Take a 5-minute stretch break every hour.",
-    "Sanitize your hands frequently in public spaces.",
-    "A good laugh boosts your immune system!",
-    "Get at least 7 hours of sleep for better focus.",
-    "Eat more fruits and vegetables for a natural energy boost."
-  ];
 
   @override
   void initState() {
     super.initState();
-    _startTipRotation();
     _borderController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 4),
+        vsync: this,
+        duration: const Duration(seconds: 4),
     )..repeat();
-  }
-
-  void _startTipRotation() {
-    _timer = Timer.periodic(const Duration(seconds: 6), (timer) {
-      if (mounted) {
-        setState(() {
-          _currentTipIndex = (_currentTipIndex + 1) % _healthTips.length;
-        });
-      }
-    });
   }
 
   @override
   void dispose() {
-    _timer.cancel();
     _borderController.dispose();
     super.dispose();
   }
 
-  String _getGreeting() {
-    final hour = DateTime.now().hour;
-    if (hour >= 5 && hour < 12) return "Good Morning";
-    if (hour >= 12 && hour < 17) return "Good Afternoon";
-    return "Good Evening";
-  }
-
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(userProvider);
     final currentTheme = ref.watch(themeProvider);
     final themeColor = AppThemes.getPrimaryColor(currentTheme);
 
@@ -74,7 +42,8 @@ class _HealthInsightBannerState extends ConsumerState<HealthInsightBanner> with 
       builder: (context, child) {
         return Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(2), // Space for border
+          height: 260, // Fixed height for chart
+          padding: const EdgeInsets.all(2),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(24),
             gradient: LinearGradient(
@@ -82,7 +51,7 @@ class _HealthInsightBannerState extends ConsumerState<HealthInsightBanner> with 
               end: Alignment.bottomRight,
               colors: [
                 themeColor.withOpacity(0.1),
-                themeColor.withOpacity(0.8), // Glowing animated part
+                themeColor.withOpacity(0.8),
                 themeColor.withOpacity(0.1),
               ],
               stops: [
@@ -90,7 +59,7 @@ class _HealthInsightBannerState extends ConsumerState<HealthInsightBanner> with 
                 (_borderController.value),
                 1.0
               ],
-              transform: const GradientRotation(0.5), // Tilt slightly
+              transform: const GradientRotation(0.5),
             ),
             boxShadow: [
               BoxShadow(
@@ -102,122 +71,215 @@ class _HealthInsightBannerState extends ConsumerState<HealthInsightBanner> with 
           ),
           child: Container(
             decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.6), // Inner dark background
+              color: Colors.black.withOpacity(0.8), // Darker for chart contrast
               borderRadius: BorderRadius.circular(22),
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(22),
-              child: Stack(
-                children: [
-                  // Subtle background texture
-                  Positioned.fill(
-                    child: Opacity(
-                      opacity: 0.1,
-                      child: Image.asset(
-                        'assets/images/banner.png', 
-                        fit: BoxFit.cover,
-                        errorBuilder: (_,__,___) => Container(), // Fallback silently
-                      ),
-                    ),
-                  ),
-
-                  Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Row(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Header
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "Weekly Health Score",
+                              style: GoogleFonts.outfit(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              "You're doing great!",
+                              style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12),
+                            ),
+                          ],
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
                             children: [
-                              // Greeting
-                              Row(
-                                children: [
-                                  Icon(LucideIcons.sun, color: Colors.amberAccent, size: 18)
-                                      .animate(onPlay: (c) => c.repeat())
-                                      .rotate(duration: 10.seconds),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      "${_getGreeting()}, ${user?.fullName.split(' ').first ?? 'Friend'}",
-                                      style: GoogleFonts.outfit(
-                                        color: Colors.white,
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                      maxLines: 1,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              
-                              // Check streak (micro-interaction)
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: Colors.green.withOpacity(0.15),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: Colors.green.withOpacity(0.3)),
-                                ),
-                                child: Text(
-                                  "All Systems Normal",
-                                  style: GoogleFonts.shareTechMono(color: Colors.greenAccent, fontSize: 10),
-                                ),
-                              ),
-
-                              const SizedBox(height: 12),
-
-                              // Rotating Tip
-                              AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 500),
-                                transitionBuilder: (Widget child, Animation<double> animation) {
-                                  return FadeTransition(opacity: animation, child: SlideTransition(
-                                    position: Tween<Offset>(begin: const Offset(0.0, 0.2), end: Offset.zero).animate(animation),
-                                    child: child,
-                                  ));
-                                },
-                                child: Text(
-                                  _healthTips[_currentTipIndex],
-                                  key: ValueKey<int>(_currentTipIndex),
-                                  style: const TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 14,
-                                    height: 1.4,
-                                    fontStyle: FontStyle.italic,
-                                  ),
-                                ),
-                              ),
+                              const Icon(LucideIcons.trendingUp, color: Colors.greenAccent, size: 14),
+                              const SizedBox(width: 4),
+                              const Text("+12%", style: TextStyle(color: Colors.greenAccent, fontSize: 12, fontWeight: FontWeight.bold)),
                             ],
                           ),
                         ),
-                        
-                        // Floating Icon
-                        const SizedBox(width: 15),
-                        Container(
-                          padding: const EdgeInsets.all(15),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [Colors.blueAccent.withOpacity(0.2), Colors.purpleAccent.withOpacity(0.2)],
-                            ),
-                            border: Border.all(color: Colors.white24),
-                          ),
-                          child: const Icon(LucideIcons.heartPulse, color: Colors.redAccent, size: 32),
-                        ).animate(onPlay: (c) => c.repeat(reverse: true))
-                         .scale(begin: const Offset(1, 1), end: const Offset(1.1, 1.1), duration: 1.seconds)
-                         .moveY(begin: 0, end: -5, duration: 2.seconds),
                       ],
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 20),
+                    
+                    // Chart
+                    Expanded(
+                      child: LineChart(
+                        LineChartData(
+                          gridData: const FlGridData(show: false),
+                          titlesData: FlTitlesData(
+                            show: true,
+                            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                            leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                            bottomTitles: AxisTitles(
+                              sideTitles: SideTitles(
+                                showTitles: true,
+                                interval: 1,
+                                reservedSize: 22,
+                                getTitlesWidget: (value, meta) {
+                                  const style = TextStyle(
+                                    color: Colors.white54,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 11,
+                                  );
+                                  String text;
+                                  switch (value.toInt()) {
+                                    case 0: text = 'Mon'; break;
+                                    case 1: text = 'Tue'; break;
+                                    case 2: text = 'Wed'; break;
+                                    case 3: text = 'Thu'; break;
+                                    case 4: text = 'Fri'; break;
+                                    case 5: text = 'Sat'; break;
+                                    case 6: text = 'Sun'; break;
+                                    default: return Container();
+                                  }
+                                  return Text(text, style: style);
+                                },
+                              ),
+                            ),
+                          ),
+                          borderData: FlBorderData(show: false),
+                          lineTouchData: LineTouchData(
+                            enabled: true,
+                            touchTooltipData: LineTouchTooltipData(
+                              getTooltipColor: _getTooltipColor,
+                              fitInsideHorizontally: true,
+                              fitInsideVertically: true,
+                              tooltipPadding: const EdgeInsets.all(8),
+                              getTooltipItems: (List<LineBarSpot> touchedBarSpots) {
+                                return touchedBarSpots.map((barSpot) {
+                                  String guidance = _getGuidance(barSpot.x.toInt());
+                                  return LineTooltipItem(
+                                    'Score: ${barSpot.y.toInt()}\n$guidance',
+                                    const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                    children: [
+                                      TextSpan(
+                                        text: '\nTap for details',
+                                        style: TextStyle(
+                                          color: Colors.white.withOpacity(0.5),
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.normal,
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                }).toList();
+                              },
+                            ),
+                          ),
+                          lineBarsData: [
+                            LineChartBarData(
+                              spots: const [
+                                FlSpot(0, 3) // Mon
+                                ,FlSpot(1, 4) // Tue
+                                ,FlSpot(2, 3.5) // Wed
+                                ,FlSpot(3, 5) // Thu
+                                ,FlSpot(4, 4.5) // Fri
+                                ,FlSpot(5, 6) // Sat
+                                ,FlSpot(6, 6.5) // Sun
+                              ],
+                              isCurved: true,
+                              color: themeColor,
+                              barWidth: 3,
+                              isStrokeCapRound: true,
+                              dotData: const FlDotData(show: false),
+                              belowBarData: BarAreaData(
+                                show: true,
+                                color: themeColor.withOpacity(0.2),
+                                gradient: LinearGradient(
+                                  colors: [
+                                    themeColor.withOpacity(0.4),
+                                    themeColor.withOpacity(0.0),
+                                  ],
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Stats Row
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _buildStatItem(LucideIcons.moon, "7h 30m", "Sleep", Colors.purpleAccent),
+                        _buildStatItem(LucideIcons.footprints, "8,432", "Steps", Colors.orangeAccent),
+                        _buildStatItem(LucideIcons.activity, "72 bpm", "Vitals", Colors.redAccent),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
         );
       },
+    );
+  }
+
+  String _getGuidance(int dayIndex) {
+    switch (dayIndex) {
+      case 0: return "Improvement: Walk +2k steps.";
+      case 1: return "Improvement: Sleep by 11 PM.";
+      case 2: return "Improvement: Drink more water.";
+      case 3: return "Great! Keep it up.";
+      case 4: return "Improvement: Lower sodium.";
+      case 5: return "Improvement: 30m Cardio.";
+      case 6: return "Excellent!";
+      default: return "";
+    }
+  }
+
+  static Color _getTooltipColor(LineBarSpot _) => Colors.blueGrey.withOpacity(0.8);
+
+  Widget _buildStatItem(IconData icon, String value, String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: color, size: 16),
+              const SizedBox(width: 6),
+              Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(label, style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 11)),
+        ],
+      ),
     );
   }
 }
