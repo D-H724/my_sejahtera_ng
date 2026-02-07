@@ -2,10 +2,16 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:my_sejahtera_ng/core/widgets/glass_container.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:timezone/data/latest_all.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
 
 class HotspotScreen extends StatefulWidget {
   const HotspotScreen({super.key});
@@ -19,12 +25,41 @@ class _HotspotScreenState extends State<HotspotScreen> {
   bool _isLoading = true;
   String _statusMessage = "Locating you...";
   final MapController _mapController = MapController();
+  final TextEditingController _searchController = TextEditingController();
   List<CircleMarker> _hotspots = [];
+  final FlutterLocalNotificationsPlugin _notificationsPlugin = FlutterLocalNotificationsPlugin();
 
   @override
   void initState() {
     super.initState();
+    _initializeNotifications();
     _determinePosition();
+  }
+
+  Future<void> _initializeNotifications() async {
+    tz.initializeTimeZones();
+    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const iosSettings = DarwinInitializationSettings();
+    const settings = InitializationSettings(android: androidSettings, iOS: iosSettings);
+    await _notificationsPlugin.initialize(settings);
+  }
+
+  Future<void> _showProximityAlert() async {
+    const androidDetails = AndroidNotificationDetails(
+      'hotspot_alerts',
+      'Hotspot Alerts',
+      channelDescription: 'Alerts when near COVID-19 hotspots',
+      importance: Importance.high,
+      priority: Priority.high,
+    );
+    const details = NotificationDetails(android: androidDetails, iOS: DarwinNotificationDetails());
+    
+    await _notificationsPlugin.show(
+      0,
+      'High Risk Area Detected',
+      'You are within 500m of a reported hotspot. Please maintain social distancing.',
+      details,
+    );
   }
 
   Future<void> _determinePosition() async {
@@ -70,13 +105,63 @@ class _HotspotScreenState extends State<HotspotScreen> {
         _hotspots = _generateRandomHotspots(latLng);
       });
       
-      // Move map to location
+      // Check for proximity (simulated check)
+      if (_hotspots.isNotEmpty) {
+        _showProximityAlert();
+      }
+      
     } catch (e) {
       setState(() {
         _statusMessage = "Error getting location: $e";
         _isLoading = false;
       });
     }
+  }
+  
+  Future<void> _searchLocation(String query) async {
+    if (query.isEmpty) return;
+    
+    // 1. Try Native Geocoding
+    try {
+      List<Location> locations = await locationFromAddress(query);
+      if (locations.isNotEmpty) {
+        _moveToLocation(locations.first.latitude, locations.first.longitude);
+        return;
+      }
+    } catch (e) {
+      debugPrint("Native geocoding failed: $e");
+    }
+
+    // 2. Fallback to OpenStreetMap Nominatim API
+    try {
+      final url = Uri.parse('https://nominatim.openstreetmap.org/search?q=$query&format=json&limit=1');
+      final response = await http.get(url, headers: {'User-Agent': 'com.mysj.nextgen'});
+      
+      if (response.statusCode == 200) {
+        final List data = json.decode(response.body);
+        if (data.isNotEmpty) {
+          final lat = double.parse(data[0]['lat']);
+          final lon = double.parse(data[0]['lon']);
+          _moveToLocation(lat, lon);
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint("Nominatim geocoding failed: $e");
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Location not found: $query")));
+    }
+  }
+
+  void _moveToLocation(double lat, double lng) {
+    final latLng = LatLng(lat, lng);
+    _mapController.move(latLng, 15);
+    setState(() {
+        // Generate new fictional hotspots for the searched area
+        _hotspots = _generateRandomHotspots(latLng);
+    });
   }
 
   List<CircleMarker> _generateRandomHotspots(LatLng center) {
@@ -99,6 +184,9 @@ class _HotspotScreenState extends State<HotspotScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Count hotspots "near" the center of the map
+    int riskCount = _hotspots.length; 
+
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -182,14 +270,20 @@ class _HotspotScreenState extends State<HotspotScreen> {
                               ),
                             ],
                           ),
-                          child: const TextField(
-                            style: TextStyle(color: Colors.white),
+                          child: TextField(
+                            controller: _searchController,
+                            style: const TextStyle(color: Colors.white),
+                            onSubmitted: _searchLocation,
                             decoration: InputDecoration(
                               hintText: "Search location...",
-                              hintStyle: TextStyle(color: Colors.white54),
+                              hintStyle: const TextStyle(color: Colors.white54),
                               border: InputBorder.none,
-                              icon: Icon(LucideIcons.search,
+                              icon: const Icon(LucideIcons.search,
                                   color: Colors.white54),
+                              suffixIcon: IconButton(
+                                icon: const Icon(LucideIcons.arrowRight, color: Colors.blueAccent),
+                                onPressed: () => _searchLocation(_searchController.text),
+                              )
                             ),
                           ),
                         ),
@@ -216,42 +310,60 @@ class _HotspotScreenState extends State<HotspotScreen> {
                   ),
                 ),
 
-                // Glass Overlay Controls
+                // Improved Glass Overlay Controls
                 Positioned(
                   bottom: 40,
                   left: 20,
                   right: 20,
                   child: GlassContainer(
                     borderRadius: BorderRadius.circular(24),
-                    padding: const EdgeInsets.all(20),
-                    color: Colors.black.withOpacity(0.6), // Dark glass
+                    padding: const EdgeInsets.all(24),
+                    color: Colors.black.withOpacity(0.85), // Darker for better contrast
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           children: [
-                            const Icon(LucideIcons.alertTriangle, color: Colors.redAccent),
-                            const SizedBox(width: 10),
-                            Text("High Risk Areas Detected", style: GoogleFonts.outfit(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.redAccent.withOpacity(0.2),
+                                shape: BoxShape.circle
+                              ),
+                              child: const Icon(LucideIcons.alertTriangle, color: Colors.redAccent, size: 24),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text("High Risk Areas Nearby", style: GoogleFonts.outfit(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                                  Text("$riskCount Active Hotspots", style: GoogleFonts.outfit(color: Colors.redAccent, fontSize: 14, fontWeight: FontWeight.w600)),
+                                ],
+                              ),
+                            )
                           ],
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 16),
                         Text(
-                          "You are currently in a generic safe zone. However, there are ${_hotspots.length} hotspots reported within 10km radius.",
-                          style: GoogleFonts.outfit(color: Colors.white70, fontSize: 14),
+                          "You are currently entering a zone with reported cases. Please wear a mask and sanitize frequently.",
+                          style: GoogleFonts.outfit(color: Colors.white, fontSize: 16, height: 1.4), // Increased size and contrast
                         ),
                         const SizedBox(height: 20),
                         SizedBox(
                           width: double.infinity,
-                          child: ElevatedButton(
+                          child: ElevatedButton.icon(
                             onPressed: (){},
+                            icon: const Icon(LucideIcons.mapPin),
+                            label: const Text("View Detailed Map"),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.redAccent,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                              padding: const EdgeInsets.symmetric(vertical: 15)
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)
                             ),
-                            child: const Text("View Details"),
                           ),
                         )
                       ],
