@@ -20,7 +20,6 @@ class _HoloIdCardState extends ConsumerState<HoloIdCard> with SingleTickerProvid
   double _x = 0;
   double _y = 0;
   StreamSubscription<GyroscopeEvent>? _streamSubscription;
-  late AnimationController _scanController;
 
   @override
   void initState() {
@@ -35,16 +34,11 @@ class _HoloIdCardState extends ConsumerState<HoloIdCard> with SingleTickerProvid
       });
     });
 
-    _scanController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 4),
-    )..repeat();
   }
 
   @override
   void dispose() {
     _streamSubscription?.cancel();
-    _scanController.dispose();
     super.dispose();
   }
 
@@ -208,31 +202,6 @@ class _HoloIdCardState extends ConsumerState<HoloIdCard> with SingleTickerProvid
               ),
             ),
             
-            // Scan Line Animation
-            AnimatedBuilder(
-              animation: _scanController,
-              builder: (context, child) {
-                return Positioned(
-                  top: -100 + (_scanController.value * 500), // Move from top to bottom
-                  left: 0,
-                  right: 0,
-                  height: 40,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                           themeColor.withValues(alpha: 0.0),
-                           themeColor.withValues(alpha: 0.2),
-                           themeColor.withValues(alpha: 0.0),
-                        ]
-                      )
-                    ),
-                  ),
-                );
-              },
-            ),
 
             // Holo Overlay (Iridescent)
             Positioned.fill(

@@ -13,6 +13,7 @@ import 'package:my_sejahtera_ng/features/profile/screens/account_screen.dart';
 import 'package:my_sejahtera_ng/features/vaccine/screens/vaccine_screen.dart';
 import 'package:my_sejahtera_ng/features/digital_health/screens/health_dashboard_screen.dart';
 import 'package:my_sejahtera_ng/features/food_tracker/food_tracker_screen.dart';
+import 'package:my_sejahtera_ng/features/dashboard/widgets/health_insight_banner.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:my_sejahtera_ng/features/gamification/providers/quest_provider.dart';
@@ -95,7 +96,7 @@ class DashboardScreen extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildWelcomeBanner().animate().fadeIn().slideY(begin: 0.1, end: 0, duration: 600.ms),
+                      const HealthInsightBanner().animate().fadeIn().slideY(begin: 0.1, end: 0, duration: 600.ms),
                       const SizedBox(height: 24),
 
                       Text(
@@ -185,59 +186,6 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildWelcomeBanner() {
-    return Container(
-      height: 160,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        image: const DecorationImage(
-          image: AssetImage('assets/images/banner.png'),
-          fit: BoxFit.cover,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.transparent,
-              Colors.black.withValues(alpha: 0.7),
-            ],
-          ),
-        ),
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.end,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
-            Text(
-              "Stay Safe, Stay Protected",
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            SizedBox(height: 4),
-            Text(
-              "Your comprehensive health companion",
-              style: TextStyle( color: Colors.white70),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   // _buildStatusCard removed (replaced by HoloIdCard)
 
