@@ -136,12 +136,16 @@ class _HealthInsightBannerState extends ConsumerState<HealthInsightBanner> with 
                                       .animate(onPlay: (c) => c.repeat())
                                       .rotate(duration: 10.seconds),
                                   const SizedBox(width: 8),
-                                  Text(
-                                    "${_getGreeting()}, ${user?.fullName.split(' ').first ?? 'Friend'}",
-                                    style: GoogleFonts.outfit(
-                                      color: Colors.white,
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
+                                  Expanded(
+                                    child: Text(
+                                      "${_getGreeting()}, ${user?.fullName.split(' ').first ?? 'Friend'}",
+                                      style: GoogleFonts.outfit(
+                                        color: Colors.white,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
                                     ),
                                   ),
                                 ],
