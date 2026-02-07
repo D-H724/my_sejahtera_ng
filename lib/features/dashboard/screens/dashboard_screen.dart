@@ -67,13 +67,18 @@ class DashboardScreen extends ConsumerWidget {
                       child: const Icon(LucideIcons.shieldCheck, color: Colors.blueAccent),
                     ),
                     const SizedBox(width: 12),
-                    Text(
-                      "MySejahtera NG",
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 1.2,
-                          ),
+                    Flexible(
+                      child: Text(
+                        "MySejahtera NG",
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1.2,
+                              fontSize: 20, // Slightly reduced for safety on small screens
+                            ),
+                      ),
                     ),
                   ],
                 ),
