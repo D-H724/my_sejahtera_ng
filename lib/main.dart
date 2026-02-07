@@ -5,7 +5,10 @@ import 'package:my_sejahtera_ng/core/screens/splash_screen.dart';
 import 'package:my_sejahtera_ng/core/theme/app_theme.dart';
 import 'package:my_sejahtera_ng/features/digital_health/services/notification_service.dart';
 
+import 'package:flutter_dotenv/flutter_dotenv.dart'; // Add this import
+
 Future<void> main() async {
+  await dotenv.load(fileName: ".env"); // Load env file
   WidgetsFlutterBinding.ensureInitialized();
   await NotificationService().init();
   runApp(const ProviderScope(child: MyApp()));

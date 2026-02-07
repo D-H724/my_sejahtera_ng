@@ -10,9 +10,8 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:my_sejahtera_ng/features/check_in/screens/check_in_screen.dart';
 import 'package:my_sejahtera_ng/features/hotspots/screens/hotspot_screen.dart';
 import 'package:my_sejahtera_ng/features/vaccine/screens/vaccine_screen.dart';
-
-// --- CONFIGURATION ---
-const String _kApiKey = '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';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 
 // Chat Message Model
 class ChatMessage {
@@ -146,8 +145,6 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
     _flutterTts.stop();
     super.dispose();
   }
-  
-  // _testVoice removed as requested
 
   Future<void> _sendMessage([String? manualText]) async {
     final text = manualText ?? _controller.text;
@@ -248,7 +245,7 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
     // Groq uses OpenAI-compatible format
     // OpenAI API expects: {"role": "user"|"assistant"|"system", "content": "text"}
     final List<Map<String, String>> apiMessages = [
-      {"role": "system", "content": "You are MySejahtera NG's helpful health assistant. You are concise, friendly, and knowledgeable about COVID-19 and public health."}
+      {"role": "system", "content": "You are MySejahtera NG's helpful health assistant. You are concise, friendly, and knowledgeable about COVID-19 and public health. Please keep your responses short and to the point. Use markdown bullet points for lists to make them easy to read. Avoid using decorative asterisks or excessive bold text unless necessary for emphasis."}
     ];
 
     // Add last few messages for context (limit to last 10 to save tokens)
@@ -262,11 +259,17 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
     apiMessages.add({"role": "user", "content": userMessage});
 
     try {
+      final apiKey = dotenv.env['GROQ_API_KEY'] ?? '';
+      if (apiKey.isEmpty || apiKey.contains("PLACEHOLDER")) {
+         if (mounted) setState(() => _useSimulatedAI = true);
+         return "Please set your Groq API Key in the .env file to use the AI.";
+      }
+
       final response = await http.post(
         Uri.parse('https://api.groq.com/openai/v1/chat/completions'),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer $_kApiKey',
+          'Authorization': 'Bearer $apiKey',
         },
         body: jsonEncode({
           "model": "llama-3.3-70b-versatile", 
@@ -597,13 +600,13 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
                           totalRepeatCount: 1,
                         )
                       else
-                        Text(
-                          msg.text,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            height: 1.4,
-                            fontWeight: FontWeight.w400,
+                        MarkdownBody(
+                          data: msg.text,
+                          styleSheet: MarkdownStyleSheet(
+                            p: const TextStyle(color: Colors.white, fontSize: 16, height: 1.4),
+                            strong: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                            em: const TextStyle(color: Colors.white70, fontStyle: FontStyle.italic),
+                            listBullet: const TextStyle(color: Colors.white, fontSize: 16),
                           ),
                         ),
                       
@@ -617,7 +620,7 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
                               decoration: BoxDecoration(
                                 border: Border.all(color: Colors.white.withOpacity(0.2)),
                                 borderRadius: BorderRadius.circular(16),
-                              ),
+                                ),
                               child: Image.asset(
                                 msg.imagePath!,
                                 fit: BoxFit.fitWidth, // Show full width/aspect ratio
