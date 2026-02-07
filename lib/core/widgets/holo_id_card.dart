@@ -6,7 +6,6 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:my_sejahtera_ng/features/gamification/providers/user_progress_provider.dart';
 import 'package:my_sejahtera_ng/core/providers/theme_provider.dart';
 import 'package:my_sejahtera_ng/core/theme/app_themes.dart';
-import 'package:sensors_plus/sensors_plus.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 class HoloIdCard extends ConsumerStatefulWidget {
@@ -19,26 +18,15 @@ class HoloIdCard extends ConsumerStatefulWidget {
 class _HoloIdCardState extends ConsumerState<HoloIdCard> with SingleTickerProviderStateMixin {
   double _x = 0;
   double _y = 0;
-  StreamSubscription<GyroscopeEvent>? _streamSubscription;
 
   @override
   void initState() {
     super.initState();
-    _streamSubscription = gyroscopeEventStream().listen((GyroscopeEvent event) {
-      if (!mounted) return;
-      setState(() {
-        _x += event.y * 2;
-        _y += event.x * 2;
-        _x = _x.clamp(-15.0, 15.0);
-        _y = _y.clamp(-15.0, 15.0);
-      });
-    });
-
+    // Gyroscope effect disabled by user request
   }
 
   @override
   void dispose() {
-    _streamSubscription?.cancel();
     super.dispose();
   }
 

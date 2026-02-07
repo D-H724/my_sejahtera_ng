@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:sensors_plus/sensors_plus.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:my_sejahtera_ng/core/providers/user_provider.dart';
@@ -18,22 +17,11 @@ class DigitalCertCard extends ConsumerStatefulWidget {
 class _DigitalCertCardState extends ConsumerState<DigitalCertCard> with SingleTickerProviderStateMixin {
   double _x = 0;
   double _y = 0;
-  StreamSubscription<GyroscopeEvent>? _streamSubscription;
   late AnimationController _shimmerController;
-
   @override
   void initState() {
     super.initState();
-    // Gyroscope effect for 3D tilt
-    _streamSubscription = gyroscopeEventStream().listen((GyroscopeEvent event) {
-      if (!mounted) return;
-      setState(() {
-        _x += event.y * 3; // Sensitivity
-        _y += event.x * 3;
-        _x = _x.clamp(-10.0, 10.0);
-        _y = _y.clamp(-10.0, 10.0);
-      });
-    });
+    // Gyroscope effect disabled by user request
 
     _shimmerController = AnimationController(
       vsync: this,
@@ -43,7 +31,6 @@ class _DigitalCertCardState extends ConsumerState<DigitalCertCard> with SingleTi
 
   @override
   void dispose() {
-    _streamSubscription?.cancel();
     _shimmerController.dispose();
     super.dispose();
   }
