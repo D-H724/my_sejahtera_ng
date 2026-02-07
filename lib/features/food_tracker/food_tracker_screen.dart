@@ -6,6 +6,11 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:my_sejahtera_ng/core/widgets/glass_container.dart';
 import 'package:intl/intl.dart';
+import 'dart:io';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:image_picker/image_picker.dart';
 
 // --- DATA MODELS ---
 enum DrinkType { water, tea, coffee, juice, milk }
@@ -101,6 +106,99 @@ class FoodTrackerNotifier extends StateNotifier<FoodTrackerState> {
     final validatedCal = (type == DrinkType.water) ? 0 : cal;
     state = state.copyWith(drinks: [...state.drinks, FoodEntry(name, validatedCal, type: type)]);
     _updateHistory();
+  }
+
+  Future<Map<String, dynamic>?> analyzeFoodImage(File image) async {
+    state = state.copyWith(isScanning: true);
+    
+    try {
+      final bytes = await image.readAsBytes();
+      final base64Image = base64Encode(bytes);
+      
+      final apiKey = dotenv.env['GROQ_API_KEY'] ?? '';
+      if (apiKey.isEmpty) throw Exception("API Key Missing");
+
+      final response = await http.post(
+        Uri.parse('https://api.groq.com/openai/v1/chat/completions'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $apiKey',
+        },
+        body: jsonEncode({
+          "model": "llama-3.2-11b-vision-preview",
+          "messages": [
+            {
+              "role": "user",
+              "content": [
+                {"type": "text", "text": "Analyze this food image. Identify the food item and estimate calories. Return ONLY valid JSON: {\"food_name\": \"string\", \"calories\": int, \"description\": \"string\"}. Do not include markdown formatting or explanations."},
+                {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,$base64Image"}}
+              ]
+            }
+          ],
+          "max_tokens": 300,
+          "temperature": 0.1,
+          "response_format": {"type": "json_object"}
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final content = data['choices'][0]['message']['content'].toString();
+        return jsonDecode(content) as Map<String, dynamic>;
+      } else {
+        throw Exception("AI Error: ${response.statusCode}");
+      }
+    } catch (e) {
+      debugPrint("AI Scan Error: $e");
+      return null;
+    } finally {
+      state = state.copyWith(isScanning: false);
+    }
+  }
+
+  Future<Map<String, dynamic>?> analyzeFoodText(String text) async {
+    state = state.copyWith(isScanning: true);
+    
+    try {
+      final apiKey = dotenv.env['GROQ_API_KEY'] ?? '';
+      if (apiKey.isEmpty) throw Exception("API Key Missing");
+
+      final response = await http.post(
+        Uri.parse('https://api.groq.com/openai/v1/chat/completions'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $apiKey',
+        },
+        body: jsonEncode({
+          "model": "llama-3.3-70b-versatile",
+          "messages": [
+            {
+              "role": "system",
+              "content": "You are a nutritionist AI. Analyze the food description. Return ONLY valid JSON: {\"food_name\": \"string\", \"calories\": int, \"description\": \"string\"}. Estimate calories conservatively."
+            },
+            {
+              "role": "user",
+              "content": text
+            }
+          ],
+          "max_tokens": 300,
+          "temperature": 0.1,
+          "response_format": {"type": "json_object"}
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final content = data['choices'][0]['message']['content'].toString();
+        return jsonDecode(content) as Map<String, dynamic>;
+      }
+      return null;
+    } catch (e) {
+      debugPrint("AI Text Error: $e");
+      return null;
+    } finally {
+      state = state.copyWith(isScanning: false);
+    }
   }
 }
 
@@ -442,9 +540,11 @@ class FoodTrackerScreen extends ConsumerWidget {
 
   Widget _buildActionRow(BuildContext context, WidgetRef ref) {
     return Row(children: [
-      _mainBtn("ADD FOOD", LucideIcons.utensils, Colors.orangeAccent, () => _logEntry(context, ref, false)),
-      const SizedBox(width: 15),
-      _mainBtn("ADD DRINK", LucideIcons.coffee, Colors.blueAccent, () => _logEntry(context, ref, true)),
+      _mainBtn("AI SCAN", LucideIcons.scanLine, Colors.purpleAccent, () => _showScanOptions(context, ref)),
+      const SizedBox(width: 10),
+      _mainBtn("FOOD", LucideIcons.utensils, Colors.orangeAccent, () => _logEntry(context, ref, false)),
+      const SizedBox(width: 10),
+      _mainBtn("DRINK", LucideIcons.coffee, Colors.blueAccent, () => _logEntry(context, ref, true)),
     ]);
   }
 
@@ -453,17 +553,150 @@ class FoodTrackerScreen extends ConsumerWidget {
       child: ElevatedButton.icon(
         onPressed: onTap,
         icon: Icon(i, size: 18),
-        label: Text(l, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+        label: Text(l, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)), // Smaller font
         style: ElevatedButton.styleFrom(
             backgroundColor: c.withOpacity(0.1),
             foregroundColor: c,
-            padding: const EdgeInsets.symmetric(vertical: 20),
+            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 8),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: BorderSide(color: c.withOpacity(0.3)))),
       ),
     );
   }
 
   Widget _sectionHeader(String t) => Text(t, style: const TextStyle(color: Colors.white54, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 1.2));
+
+  void _showScanOptions(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF161B1E),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text("AI CALORIE SCAN", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+            const SizedBox(height: 20),
+            _scanOptionTile(ctx, "Take Photo", LucideIcons.camera, () => _processImage(context, ref, ImageSource.camera)),
+            _scanOptionTile(ctx, "Choose from Gallery", LucideIcons.image, () => _processImage(context, ref, ImageSource.gallery)),
+            _scanOptionTile(ctx, "Describe Food (Text)", LucideIcons.textCursorInput, () => _processText(context, ref)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _scanOptionTile(BuildContext context, String title, IconData icon, VoidCallback onTap) {
+    return ListTile(
+      leading: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.purpleAccent.withOpacity(0.2), shape: BoxShape.circle), child: Icon(icon, color: Colors.purpleAccent)),
+      title: Text(title, style: const TextStyle(color: Colors.white)),
+      onTap: () {
+        Navigator.pop(context);
+        onTap();
+      },
+    );
+  }
+
+  Future<void> _processImage(BuildContext context, WidgetRef ref, ImageSource source) async {
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(source: source, maxWidth: 800, maxHeight: 800, imageQuality: 85);
+      
+      if (image != null) {
+        final result = await ref.read(foodTrackerProvider.notifier).analyzeFoodImage(File(image.path));
+        if (result != null) _showAnalysisResult(context, ref, result);
+      }
+    } catch (e) {
+      debugPrint("Picker Error: $e");
+    }
+  }
+
+  void _processText(BuildContext context, WidgetRef ref) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF161B1E),
+        title: const Text("Describe Meal", style: TextStyle(color: Colors.white)),
+        content: TextField(
+          controller: controller,
+          style: const TextStyle(color: Colors.white),
+          decoration: const InputDecoration(hintText: "e.g. A bowl of chicken curry with rice", hintStyle: TextStyle(color: Colors.white30)),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("CANCEL")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.purpleAccent),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              if (controller.text.isNotEmpty) {
+                 final result = await ref.read(foodTrackerProvider.notifier).analyzeFoodText(controller.text);
+                 if (result != null) _showAnalysisResult(context, ref, result);
+              }
+            }, 
+            child: const Text("ANALYZE")
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAnalysisResult(BuildContext context, WidgetRef ref, Map<String, dynamic> result) {
+    final nameCtrl = TextEditingController(text: result['food_name']);
+    final calCtrl = TextEditingController(text: result['calories'].toString());
+    
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF161B1E),
+      isScrollControlled: true,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom, left: 24, right: 24, top: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              const Icon(LucideIcons.sparkles, color: Colors.purpleAccent),
+              const SizedBox(width: 10),
+              const Text("AI ANALYSIS RESULT", style: TextStyle(color: Colors.purpleAccent, fontWeight: FontWeight.bold)),
+            ]),
+            const SizedBox(height: 10),
+            Text(result['description'] ?? "Food identified.", style: const TextStyle(color: Colors.white70, fontStyle: FontStyle.italic, fontSize: 13)),
+            const SizedBox(height: 20),
+            TextField(
+              controller: nameCtrl,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(labelText: "Food Name", labelStyle: TextStyle(color: Colors.white54)),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: calCtrl,
+              keyboardType: TextInputType.number,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(labelText: "Calories", labelStyle: TextStyle(color: Colors.white54)),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                   final name = nameCtrl.text;
+                   final cal = int.tryParse(calCtrl.text) ?? 0;
+                   if (name.isNotEmpty && cal > 0) {
+                     ref.read(foodTrackerProvider.notifier).addFood(name, cal);
+                     Navigator.pop(ctx);
+                   }
+                },
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.purpleAccent, padding: const EdgeInsets.symmetric(vertical: 16)),
+                child: const Text("CONFIRM & ADD"),
+              ),
+            ),
+            const SizedBox(height: 30),
+          ],
+        ),
+      ),
+    );
+  }
 
   void _openAllergySheet(BuildContext context, WidgetRef ref, FoodTrackerState s) {
     showModalBottomSheet(

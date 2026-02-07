@@ -59,6 +59,7 @@ dependencies:
   printing: ^5.11.0
   path_provider: ^2.1.1
   share_plus: ^7.1.0
+  image_picker: ^1.1.2
 
 dev_dependencies:
   flutter_test:
@@ -113,3 +114,4 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
