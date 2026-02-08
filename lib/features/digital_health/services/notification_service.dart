@@ -1,4 +1,4 @@
-
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tzd;
 import 'package:timezone/timezone.dart' as tzt;
@@ -24,6 +24,15 @@ class NotificationService {
 
     await flutterLocalNotificationsPlugin.initialize(initializationSettings);
     
+    // Set default time zone for Malaysia
+    try {
+      tzt.setLocalLocation(tzt.getLocation('Asia/Kuala_Lumpur'));
+    } catch (e) {
+      debugPrint("Timezone Error: $e");
+      // Fallback to UTC if something goes wrong
+      tzt.setLocalLocation(tzt.getLocation('UTC'));
+    }
+
     // Request permission for Android 13+
     await flutterLocalNotificationsPlugin
         .resolvePlatformSpecificImplementation<
