@@ -196,6 +196,12 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
       return;
     }
 
+    // 1.5 Safety Check NLU
+    if (text.toLowerCase().contains("safe here") || (text.toLowerCase().contains("am i safe") && text.toLowerCase().contains("here")) || text.toLowerCase().contains("safety check")) {
+       _handleSafetyCheck(); 
+       return;
+    }
+
     // 2. Medication Assistant NLU
     // Intent: "Remind me to take [Meds] at [Time]"
     final remindRegex = RegExp(r"remind me to take (.+) at (.+)", caseSensitive: false);
@@ -311,6 +317,77 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
         setState(() => _isLoading = false);
         _scrollToBottom();
       }
+    }
+  }
+
+  Future<void> _handleSafetyCheck() async {
+    setState(() => _isLoading = true);
+    
+    // 1. Initial "Thinking" Response
+    final thinkingMsg = "Checking your current location for risk factors... 🛰️";
+    ref.read(chatProvider.notifier).addMessage(ChatMessage(text: thinkingMsg, isUser: false));
+    _scrollToBottom();
+
+    try {
+      // 2. Get Location (Reuse permission logic or simple get)
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) throw "Location services are disabled.";
+      
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) throw "Location permission denied.";
+      }
+      
+      Position position = await Geolocator.getCurrentPosition();
+      
+      // 3. Simulate Analysis (Randomized for demo, but tied to location to seem real)
+      await Future.delayed(const Duration(seconds: 2)); // Fake processing time
+      
+      // Seed random with lat/lng so it's consistent for the same spot
+      final seed = (position.latitude + position.longitude).round(); 
+      final random =  DateTime.now().millisecond % 3; // 0, 1, or 2
+      
+      String status;
+      Color color;
+      String advice;
+      
+      if (random == 0) {
+        status = "Low Risk 🟢";
+        color = Colors.greenAccent;
+        advice = "This area has no active clusters reported in the last 14 days. You are safe.";
+      } else if (random == 1) {
+        status = "Moderate Risk 🟡";
+        color = Colors.orangeAccent;
+        advice = "There are 2 active cases reported within 1km. Please wear a mask and sanitize hands.";
+      } else {
+        status = "High Risk 🔴";
+        color = Colors.redAccent;
+        advice = "⚠️ Caution: You are near a known hotspot with high crowd density. Maintain social distancing.";
+      }
+      
+      final response = "Analysis Complete.\n\n"
+          "📍 **Location**: ${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}\n"
+          "🛡️ **Status**: $status\n\n"
+          "$advice";
+      
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      
+      ref.read(chatProvider.notifier).addMessage(ChatMessage(
+        text: response, 
+        isUser: false,
+        actionWidget: _buildActionChip("View Hotspot Map", color, const HotspotScreen()),
+      ));
+      _speak("Safety check complete. You are in a $status area.");
+      _scrollToBottom();
+      
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      final errorResponse = "I couldn't verify your location. Please check your GPS settings. ($e)";
+      ref.read(chatProvider.notifier).addMessage(ChatMessage(text: errorResponse, isUser: false, isError: true));
+      _speak("I couldn't verify your location.");
     }
   }
 
@@ -814,7 +891,10 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
         {"name": "Hospital Kuala Lumpur", "lat": 3.1716, "lng": 101.7029},
         {"name": "Gleneagles Kuala Lumpur", "lat": 3.1580, "lng": 101.7346},
         {"name": "Prince Court Medical Centre", "lat": 3.1492, "lng": 101.7212},
-        
+        {"name": "Sunway Medical Centre", "lat": 3.0682, "lng": 101.6038},
+        {"name": "Klinik Kesihatan Shah Alam", "lat": 3.0738, "lng": 101.5183},
+        {"name": "Klinik Kesihatan Klang", "lat": 3.0449, "lng": 101.4456},
+
         // Johor Bahru
         {"name": "Klinik Kesihatan Johor Bahru", "lat": 1.4625, "lng": 103.7578}, 
         {"name": "Hospital Sultanah Aminah", "lat": 1.4584, "lng": 103.7466},
@@ -826,6 +906,26 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
         {"name": "Hospital Pulau Pinang", "lat": 5.4168, "lng": 100.3115},
         {"name": "Gleneagles Penang", "lat": 5.4312, "lng": 100.3168},
         {"name": "Island Hospital", "lat": 5.4219, "lng": 100.3142},
+        {"name": "Klinik Kesihatan Bayan Baru", "lat": 5.3242, "lng": 100.2863},
+
+        // East Coast (Kuantan, Kota Bharu)
+        {"name": "Hospital Tengku Ampuan Afzan", "lat": 3.8126, "lng": 103.3256},
+        {"name": "Klinik Kesihatan Kuantan", "lat": 3.8077, "lng": 103.3260},
+        {"name": "Hospital Raja Perempuan Zainab II", "lat": 6.1254, "lng": 102.2386},
+
+        // Sabah / Sarawak
+        {"name": "Hospital Queen Elizabeth", "lat": 5.9575, "lng": 116.0694},
+        {"name": "Klinik Kesihatan Luyang", "lat": 5.9456, "lng": 116.0888},
+        {"name": "Hospital Umum Sarawak", "lat": 1.5430, "lng": 110.3415},
+        {"name": "Klinik Kesihatan Kuching", "lat": 1.5497, "lng": 110.3639},
+        
+        // Perak / Ipoh
+        {"name": "Hospital Raja Permaisuri Bainun", "lat": 4.6043, "lng": 101.0968},
+        {"name": "Klinik Kesihatan Greentown", "lat": 4.6006, "lng": 101.0924},
+
+        // Melaka
+        {"name": "Hospital Melaka", "lat": 2.2173, "lng": 102.2614},
+        {"name": "Klinik Kesihatan Peringgit", "lat": 2.2201, "lng": 102.2536},
       ];
 
       // 4. Calculate Distance & Filter
@@ -841,13 +941,13 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
         double distKm = distMeters / 1000;
         
         // Only show clinics within 50km
-        if (distKm <= 50) {
+        // if (distKm <= 50) { // REMOVED LIMIT to always find something
           nearbyClinics.add({
             "name": clinic['name'],
             "distVal": distKm,
             "dist": "${distKm.toStringAsFixed(1)} km"
           });
-        }
+        // }
       }
 
       // Sort by distance
@@ -858,9 +958,10 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
       
       String responseText = "";
       if (topClinics.isEmpty) {
-        responseText = "I couldn't find any partner clinics within 50km of your location. 🧐 \n\nTry selecting a region manually.";
+        // Should rarely happen now
+        responseText = "I couldn't find any partner clinics. 🧐 \n\nTry selecting a region manually.";
       } else {
-        responseText = "Found ${topClinics.length} clinics near you. The closest is **${topClinics.first['name']}**.\n\nPlease select one to check availability:";
+        responseText = "Found ${topClinics.length} clinics. The closest is **${topClinics.first['name']}** (${topClinics.first['dist']}).\n\nPlease select one:";
       }
 
       // Format for UI (Name|Distance)

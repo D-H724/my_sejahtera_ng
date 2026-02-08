@@ -46,9 +46,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final dummyUser = UserSession(
       id: 9999, // Dummy ID
       username: _usernameController.text,
-      fullName: _usernameController.text, // Dummy Full Name
-      icNumber: "900101-14-1234", // Dummy IC
-      phone: "+6012-3456789", // Dummy Phone
+      fullName: _usernameController.text.isEmpty ? "Ali Bin Abu" : _usernameController.text, 
+      icNumber: "900101-14-5678", 
+      phone: "+6012-3456789",
+      // Fake Medical Data for Demo
+      bloodType: "O+",
+      allergies: "Peanuts, Penicillin",
+      medicalCondition: "Asthma (Mild)",
+      emergencyContact: "+6012-987-6543 (Wife)",
     );
 
     // Update state

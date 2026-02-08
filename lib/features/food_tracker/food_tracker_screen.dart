@@ -629,12 +629,25 @@ class _FoodTrackerScreenState extends ConsumerState<FoodTrackerScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () {
+                onPressed: () async {
                    final name = nameCtrl.text;
                    final cal = int.tryParse(calCtrl.text) ?? 0;
                    if (name.isNotEmpty && cal > 0) {
-                     ref.read(foodTrackerProvider.notifier).addFood(name, cal);
-                     Navigator.pop(ctx);
+                     // 1. Check for Allergy Risk
+                     final riskMessage = await ref.read(foodTrackerProvider.notifier).checkAllergyRisk(name);
+                     
+                     if (riskMessage != null) {
+                        // 2. Show Warning if detected
+                        _showAllergenWarning(context, riskMessage, () {
+                           // 3. Add on confirmation
+                           ref.read(foodTrackerProvider.notifier).addFood(name, cal);
+                           Navigator.pop(ctx); 
+                        });
+                     } else {
+                        // 4. Add immediately if safe
+                        ref.read(foodTrackerProvider.notifier).addFood(name, cal);
+                        Navigator.pop(ctx);
+                     }
                    }
                 },
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.purpleAccent, padding: const EdgeInsets.symmetric(vertical: 16)),
