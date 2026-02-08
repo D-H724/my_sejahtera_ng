@@ -278,7 +278,8 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
       } else if (combinedContext.contains("hotspot") || combinedContext.contains("map") || combinedContext.contains("risk")) {
         action = _buildActionChip("Check Hotspots", Colors.redAccent, const HotspotScreen());
       // NEW SMART ACTIONS
-      } else if (combinedContext.contains("drink") || combinedContext.contains("water") || combinedContext.contains("hydrate") || combinedContext.contains("thirsty")) {
+      } else if ((combinedContext.contains("log") || combinedContext.contains("track") || combinedContext.contains("record")) && 
+                 (combinedContext.contains("water") || combinedContext.contains("drink") || combinedContext.contains("hydrate"))) {
         action = _buildActionChip("Log Hydration", Colors.cyanAccent, const FoodTrackerScreen(autoShowHydration: true));
       } else if (combinedContext.contains("eat") || combinedContext.contains("food") || combinedContext.contains("diet") || combinedContext.contains("calorie")) {
          action = _buildActionChip("Log Food", Colors.orangeAccent, const FoodTrackerScreen());
@@ -1259,14 +1260,17 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
 
   Widget _buildFuturisticSuggestions() {
     final chips = [
-      "I have a fever 🤒",
-      "Coughing a lot 😷",
-      "Sore throat 😫",
-      "Breathing difficulty 🫁",
-      "Covid-19 risk? 🦠",
-      "Vaccine Status 💉", 
-      "Check-in Scan 📷", 
-      "Risky Spots 📍",
+      "Book a Dentist 🦷",
+      "Find Specialist 👨‍⚕️",
+      "Am I safe here? 📍",
+      "Nearest Clinic 🏥",
+      "I took my meds 💊", 
+      "Set Med Reminder ⏰",
+      "Log Lunch 🥗",
+      "Update Vitals 💓",
+      "My digital cert 💉", 
+      "BMI Analysis ⚖️",
+      "Check-in Scan 📷",
     ];
     return SizedBox(
       height: 50,
@@ -1570,8 +1574,23 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
   DateTime _parseTime(String timeStr) {
     try {
       final now = DateTime.now();
-      final cleanStr = timeStr.trim().toUpperCase(); // "02:00 PM"
+      String cleanStr = timeStr.trim().toUpperCase(); // "TOMORROW 09:00 AM" or "09:00 AM"
+      
+      int dayOffset = 0;
+      if (cleanStr.contains("TOMORROW")) {
+        dayOffset = 1;
+        cleanStr = cleanStr.replaceAll("TOMORROW", "").trim();
+      } else if (cleanStr.contains("TODAY")) {
+        cleanStr = cleanStr.replaceAll("TODAY", "").trim();
+      }
+
+      // now date part
+      final dateBase = now.add(Duration(days: dayOffset));
+
+      // expected cleanStr: "09:00 AM"
       final parts = cleanStr.split(" "); 
+      if (parts.length < 2) throw "Invalid Format";
+
       final timeParts = parts[0].split(":");
       
       int hour = int.parse(timeParts[0]);
@@ -1579,11 +1598,12 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
       bool isPM = parts[1] == "PM";
 
       if (isPM && hour != 12) hour += 12;
-      if (!isPM && hour == 12) hour = 0;
+      if (!isPM && hour == 12) hour = 0; // 12 AM is 00:00
 
-      return DateTime(now.year, now.month, now.day, hour, minute);
+      return DateTime(dateBase.year, dateBase.month, dateBase.day, hour, minute);
     } catch (e) {
       debugPrint("Time Parse Error: $e");
+      // Fallback: Return now, but log error
       return DateTime.now();
     }
   }
