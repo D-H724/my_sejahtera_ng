@@ -23,7 +23,7 @@ class MedicationNotifier extends StateNotifier<MedicationState> {
     
     state = state.copyWith(medications: [...state.medications, newMedication]);
 
-    state = state.copyWith(medications: [...state.medications, newMedication]);
+
 
     if (newMedication.isOneTime) {
       await _notificationService.scheduleOneTimeNotification(

@@ -91,7 +91,12 @@ class NotificationService {
     required String body,
     required DateTime time,
   }) async {
-    final tzt.TZDateTime scheduledDate = tzt.TZDateTime.from(time, tzt.local);
+    // Robust Timezone Handling for Relative Timers:
+    // Calculate the duration from "device now" to "target time"
+    final Duration offset = time.difference(DateTime.now());
+    
+    // Apply that duration to the "notification timezone now"
+    final tzt.TZDateTime scheduledDate = tzt.TZDateTime.now(tzt.local).add(offset);
 
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
@@ -116,7 +121,7 @@ class NotificationService {
 
     // If time is in the past (e.g. user selected 1 min ago), schedule for now + 5 seconds
     if (scheduledDate.isBefore(tzt.TZDateTime.now(tzt.local))) {
-        debugPrint("⚠️ Scheduled time is in the past. Scheduling for 5 seconds from now.");
+        debugPrint("⚠️ Scheduled time $scheduledDate is in the past. Current time: ${tzt.TZDateTime.now(tzt.local)}. Scheduling for 5 seconds from now.");
         await flutterLocalNotificationsPlugin.zonedSchedule(
           id,
           title,
@@ -138,10 +143,10 @@ class NotificationService {
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
-      matchDateTimeComponents: DateTimeComponents.dateAndTime, // One time
+      matchDateTimeComponents: null, // Ensure it's a one-time event
     );
     
-    debugPrint("✅ Scheduled One-Time Notification [$id] '$title' at $scheduledDate");
+    debugPrint("✅ Scheduled One-Time Notification [$id] '$title' at $scheduledDate (Now: ${tzt.TZDateTime.now(tzt.local)})");
   }
 
   tzt.TZDateTime _nextInstanceOfTime(DateTime time) {
