@@ -407,17 +407,37 @@ class FoodTrackerScreen extends ConsumerWidget {
     );
   }
 
+  // --- ERROR HANDLING ---
+  void _showErrorDialog(BuildContext context, String message) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A0A0A),
+        title: const Icon(LucideIcons.alertTriangle, color: Colors.orangeAccent),
+        content: Text(message, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("OK", style: TextStyle(color: Colors.white))),
+        ],
+      ),
+    );
+  }
+
   Future<void> _processImage(BuildContext context, WidgetRef ref, ImageSource source) async {
     try {
       final ImagePicker picker = ImagePicker();
       final XFile? image = await picker.pickImage(source: source, maxWidth: 800, maxHeight: 800, imageQuality: 85);
       
       if (image != null) {
-        final result = await ref.read(foodTrackerProvider.notifier).analyzeFoodImage(image);
-        if (result != null) _showAnalysisResult(context, ref, result);
+        try {
+           final result = await ref.read(foodTrackerProvider.notifier).analyzeFoodImage(image);
+           if (result != null) _showAnalysisResult(context, ref, result);
+        } catch (e) {
+           _showErrorDialog(context, "Analysis Failed: ${e.toString().replaceAll("Exception: ", "")}");
+        }
       }
     } catch (e) {
       debugPrint("Picker Error: $e");
+      _showErrorDialog(context, "Could not picking image: $e");
     }
   }
 
@@ -441,8 +461,12 @@ class FoodTrackerScreen extends ConsumerWidget {
             onPressed: () async {
               Navigator.pop(ctx);
               if (controller.text.isNotEmpty) {
-                 final result = await ref.read(foodTrackerProvider.notifier).analyzeFoodText(controller.text);
-                 if (result != null) _showAnalysisResult(context, ref, result);
+                 try {
+                    final result = await ref.read(foodTrackerProvider.notifier).analyzeFoodText(controller.text);
+                    if (result != null) _showAnalysisResult(context, ref, result);
+                 } catch (e) {
+                    _showErrorDialog(context, "Analysis Failed: ${e.toString().replaceAll("Exception: ", "")}");
+                 }
               }
             }, 
             child: const Text("ANALYZE")

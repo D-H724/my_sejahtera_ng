@@ -177,6 +177,7 @@ class _HoloIdCardState extends ConsumerState<HoloIdCard> with SingleTickerProvid
             ),
           ],
         ),
+        const SizedBox(height: 20), // Added padding to avoid overlap with "IDENTITY MODE"
       ],
     );
   }

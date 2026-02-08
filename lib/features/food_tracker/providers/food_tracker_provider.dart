@@ -120,7 +120,7 @@ class FoodTrackerNotifier extends StateNotifier<FoodTrackerState> {
       debugPrint("Starting AI Scan...");
       final bytes = await image.readAsBytes();
       final base64Image = base64Encode(bytes);
-      debugPrint("Image encoded: ${base64Image.length} bytes");
+      // debugPrint("Image encoded: ${base64Image.length} bytes");
       
       String apiKey = dotenv.env['GROQ_API_KEY'] ?? '';
       if (apiKey.isEmpty) {
@@ -137,7 +137,7 @@ class FoodTrackerNotifier extends StateNotifier<FoodTrackerState> {
           'Authorization': 'Bearer $apiKey',
         },
         body: jsonEncode({
-          "model": "llama-3.2-11b-vision-preview",
+          "model": "meta-llama/llama-4-maverick-17b-128e-instruct",
           "messages": [
             {
               "role": "user",
@@ -151,7 +151,7 @@ class FoodTrackerNotifier extends StateNotifier<FoodTrackerState> {
           "temperature": 0.1,
           "response_format": {"type": "json_object"}
         }),
-      );
+      ).timeout(const Duration(seconds: 15));
 
       debugPrint("Response Status: ${response.statusCode}");
       debugPrint("Response Body: ${response.body}");
@@ -161,11 +161,11 @@ class FoodTrackerNotifier extends StateNotifier<FoodTrackerState> {
         final content = data['choices'][0]['message']['content'].toString();
         return jsonDecode(content) as Map<String, dynamic>;
       } else {
-        throw Exception("AI Error: ${response.statusCode} - ${response.body}");
+        throw "AI Error: ${response.statusCode} - ${response.body}";
       }
     } catch (e) {
       debugPrint("AI Scan Exception: $e");
-      return null;
+      throw e.toString(); // Re-throw to be caught by UI
     } finally {
       state = state.copyWith(isScanning: false);
     }
@@ -203,17 +203,17 @@ class FoodTrackerNotifier extends StateNotifier<FoodTrackerState> {
           "temperature": 0.1,
           "response_format": {"type": "json_object"}
         }),
-      );
+      ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final content = data['choices'][0]['message']['content'].toString();
         return jsonDecode(content) as Map<String, dynamic>;
       }
-      return null;
+      throw "AI Error: ${response.statusCode} - ${response.body}";
     } catch (e) {
       debugPrint("AI Text Error: $e");
-      return null;
+      throw e.toString();
     } finally {
       state = state.copyWith(isScanning: false);
     }
