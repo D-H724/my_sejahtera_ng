@@ -14,6 +14,7 @@ import 'package:my_sejahtera_ng/features/vaccine/screens/vaccine_screen.dart';
 import 'package:my_sejahtera_ng/features/digital_health/screens/health_dashboard_screen.dart';
 import 'package:my_sejahtera_ng/features/food_tracker/food_tracker_screen.dart';
 import 'package:my_sejahtera_ng/features/dashboard/widgets/health_insight_banner.dart';
+import 'package:my_sejahtera_ng/features/dashboard/widgets/calorie_insight_card.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:my_sejahtera_ng/features/gamification/providers/quest_provider.dart';
@@ -101,9 +102,6 @@ class DashboardScreen extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const HealthInsightBanner().animate().fadeIn().slideY(begin: 0.1, end: 0, duration: 600.ms),
-                      const SizedBox(height: 24),
-
                       Text(
                         "Risk Status",
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
@@ -115,6 +113,16 @@ class DashboardScreen extends ConsumerWidget {
 
                       // NEW: Holographic ID Card
                       const HoloIdCard().animate().fadeIn(delay: 300.ms).slideX(),
+
+                      const SizedBox(height: 24),
+                      
+                      // Weekly Health Score
+                      const HealthInsightBanner().animate().fadeIn().slideY(begin: 0.1, end: 0, duration: 600.ms),
+                      
+                      const SizedBox(height: 24),
+                      
+                      // NEW: Calorie Tracker Widget
+                      const CalorieInsightCard(),
 
                       const SizedBox(height: 24),
                       Text(

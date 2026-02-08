@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 // Import features and providers
 import 'package:my_sejahtera_ng/features/food_tracker/food_tracker_screen.dart'; // Ensure this matches export
+import 'package:my_sejahtera_ng/features/food_tracker/providers/food_tracker_provider.dart';
 import 'package:my_sejahtera_ng/features/digital_health/providers/medication_provider.dart';
 import 'package:my_sejahtera_ng/features/digital_health/providers/vitals_provider.dart';
 import 'package:my_sejahtera_ng/features/digital_health/screens/medication_tracker_screen.dart';
