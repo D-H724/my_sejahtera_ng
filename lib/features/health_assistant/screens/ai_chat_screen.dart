@@ -27,6 +27,10 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:my_sejahtera_ng/features/digital_health/providers/medication_provider.dart';
 import 'package:my_sejahtera_ng/features/digital_health/models/medication.dart';
 import 'package:my_sejahtera_ng/features/digital_health/screens/medication_tracker_screen.dart';
+import 'package:my_sejahtera_ng/features/digital_health/providers/vitals_provider.dart';
+import 'package:my_sejahtera_ng/features/digital_health/screens/health_vitals_screen.dart';
+import 'package:my_sejahtera_ng/features/food_tracker/providers/food_tracker_provider.dart';
+import 'package:my_sejahtera_ng/features/food_tracker/food_tracker_screen.dart';
 
 // Chat Message Model
 class ChatMessage {
@@ -273,6 +277,15 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
         action = _buildActionChip("View Vaccine", Colors.amber, const VaccineScreen());
       } else if (combinedContext.contains("hotspot") || combinedContext.contains("map") || combinedContext.contains("risk")) {
         action = _buildActionChip("Check Hotspots", Colors.redAccent, const HotspotScreen());
+      // NEW SMART ACTIONS
+      } else if (combinedContext.contains("drink") || combinedContext.contains("water") || combinedContext.contains("hydrate") || combinedContext.contains("thirsty")) {
+        action = _buildActionChip("Log Hydration", Colors.cyanAccent, const FoodTrackerScreen(autoShowHydration: true));
+      } else if (combinedContext.contains("eat") || combinedContext.contains("food") || combinedContext.contains("diet") || combinedContext.contains("calorie")) {
+         action = _buildActionChip("Log Food", Colors.orangeAccent, const FoodTrackerScreen());
+      } else if (combinedContext.contains("bmi") || combinedContext.contains("vital") || combinedContext.contains("weight") || combinedContext.contains("blood")) {
+         action = _buildActionChip("Update Vitals", Colors.pinkAccent, const HealthVitalsScreen());
+      } else if (combinedContext.contains("medication") || combinedContext.contains("pill") || combinedContext.contains("dose") || combinedContext.contains("medicine")) {
+         action = _buildActionChip("Manage Meds", Colors.greenAccent, const MedicationTrackerScreen());
       }
 
       HapticFeedback.mediumImpact(); // Haptic for receive
@@ -602,18 +615,27 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
     final currentMessages = ref.read(chatProvider);
     final user = ref.read(userProvider);
     
+    // LIVE HEALTH DATA CONTEXT
+    final vitals = ref.read(vitalsProvider);
+    final foodState = ref.read(foodTrackerProvider);
+    final medState = ref.read(medicationProvider);
+
     String systemPrompt = "You are MySejahtera NG's advanced AI Health Assistant. You are concise, friendly, and knowledgeable about public health.";
     
     if (user != null) {
-      systemPrompt += "\n\nUser Context:\n"
+      systemPrompt += "\n\nUser Profile:\n"
           "- Name: ${user.fullName}\n"
           "- Medical Conditions: ${user.medicalCondition}\n"
           "- Allergies: ${user.allergies}\n"
-          "- Blood Type: ${user.bloodType}\n"
-          "\nUse this medical profile to provide personalized advice. If they report symptoms matches their conditions, warn them accordingly. Always advise consulting a doctor for serious issues.";
+          "- Blood Type: ${user.bloodType}\n";
+          
+      systemPrompt += "\n\nCurrent Health Status (Real-time):\n"
+          "- BMI: ${vitals.bmi.toStringAsFixed(1)} (${vitals.bmiStatus})\n"
+          "- Calories Today: ${foodState.totalCalories} / ${foodState.calorieTarget} kcal\n"
+          "- Hydration: ${foodState.waterCount} glasses (Goal: 8)\n"
+          "- Medications: ${medState.medications.length} active, ${medState.medications.where((m) => m.isTaken).length} taken today.\n"
+          "\nUse this data to be proactively helpful. If they have low hydration, remind them to drink water. If they exceeded calories, suggest a light walk. If they missed meds, remind them gently.";
     }
-    
-
 
     // Groq uses OpenAI-compatible format
     // OpenAI API expects: {"role": "user"|"assistant"|"system", "content": "text"}
