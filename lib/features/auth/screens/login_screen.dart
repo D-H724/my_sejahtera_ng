@@ -5,6 +5,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:my_sejahtera_ng/core/providers/user_provider.dart';
 import 'package:my_sejahtera_ng/core/theme/app_theme.dart';
 import 'package:my_sejahtera_ng/core/widgets/glass_container.dart';
+import 'package:my_sejahtera_ng/core/widgets/holo_id_card.dart';
 import 'package:my_sejahtera_ng/features/auth/screens/sign_up_screen.dart';
 import 'package:my_sejahtera_ng/features/dashboard/screens/dashboard_screen.dart';
 
@@ -210,25 +211,134 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   const SizedBox(height: 30),
 
                   // Footer
-                  TextButton(
-                    onPressed: _navigateToSignUp,
-                    child: const Text.rich(
-                      TextSpan(
-                        text: "Don't have an account? ",
-                        style: TextStyle(color: Colors.white60),
-                        children: [
+                  Column(
+                    children: [
+                      TextButton(
+                        onPressed: _navigateToSignUp,
+                        child: const Text.rich(
                           TextSpan(
-                            text: "Create Account",
-                            style: TextStyle(color: AppTheme.accentTeal, fontWeight: FontWeight.bold),
+                            text: "Don't have an account? ",
+                            style: TextStyle(color: Colors.white60),
+                            children: [
+                              TextSpan(
+                                text: "Create Account",
+                                style: TextStyle(color: AppTheme.accentTeal, fontWeight: FontWeight.bold),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
-                    ),
+                      const SizedBox(height: 20),
+                      IconButton(
+                        onPressed: _showEmergencySearch,
+                        icon: const Icon(LucideIcons.siren, color: Colors.redAccent, size: 28),
+                        tooltip: "Emergency Medical Access",
+                        style: IconButton.styleFrom(
+                          backgroundColor: Colors.red.withOpacity(0.1),
+                          padding: const EdgeInsets.all(12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.redAccent.withOpacity(0.5))),
+                        ),
+                      ).animate().fade(duration: 2.seconds).scale(),
+                      const SizedBox(height: 5),
+                      const Text("EMERGENCY ACCESS", style: TextStyle(color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                    ],
                   ).animate().fadeIn(delay: 900.ms),
                 ],
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  void _showEmergencySearch() {
+    final icCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF161B1E),
+        title: Row(children: [const Icon(LucideIcons.siren, color: Colors.redAccent), const SizedBox(width: 10), const Text("Emergency Access", style: TextStyle(color: Colors.white))]),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text("Authorized Personnel Only. Enter IC Number to view medical ID.", style: TextStyle(color: Colors.white70, fontSize: 13)),
+            const SizedBox(height: 20),
+            TextField(
+              controller: icCtrl,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                labelText: "IC Number",
+                labelStyle: const TextStyle(color: Colors.white54),
+                prefixIcon: const Icon(LucideIcons.search, color: Colors.white54),
+                filled: true,
+                fillColor: Colors.white.withOpacity(0.05),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("CANCEL")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+            onPressed: () {
+              Navigator.pop(ctx);
+              // In a real app, this would query the backend. 
+              // For prototype, we show a dummy "found" user if IC is not empty.
+              if (icCtrl.text.isNotEmpty) {
+                _showEmergencyCard(icCtrl.text);
+              }
+            }, 
+            child: const Text("ACCESS DATA")
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEmergencyCard(String ic) {
+    // Mock user for emergency display
+    final emergencyUser = UserSession(
+      id: 0,
+      username: "emergency_view",
+      fullName: "CITIZEN $ic",
+      icNumber: ic,
+      phone: "N/A",
+      bloodType: "O+",
+      allergies: "Penicillin, Peanuts",
+      medicalCondition: "Asthma, Diabetes Type 2",
+      emergencyContact: "+6012-999-9999 (Mother)",
+    );
+
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
+              decoration: BoxDecoration(color: Colors.redAccent, borderRadius: BorderRadius.circular(20)),
+              child: const Text("EMERGENCY MEDICAL RECORD", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+            ),
+            const SizedBox(height: 20),
+            // We use standard HoloIdCard but pass the mock user data
+            // We explicitly import HoloIdCard in the file header next
+            SizedBox(
+              height: 230,
+              child: HoloIdCard(userData: emergencyUser),
+            ),
+            const SizedBox(height: 30),
+            ElevatedButton.icon(
+              onPressed: () => Navigator.pop(ctx),
+              icon: const Icon(LucideIcons.x, size: 16),
+              label: const Text("CLOSE RECORD"),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.white24, foregroundColor: Colors.white),
+            )
+          ],
         ),
       ),
     );
