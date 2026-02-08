@@ -380,7 +380,7 @@ class _AddMedicationSheetState extends State<AddMedicationSheet> {
         Wrap(
           spacing: 10,
           runSpacing: 10,
-          children: [5, 15, 30, 60, 120].map((mins) {
+          children: [2, 5, 15, 30, 60, 120].map((mins) {
              final isSelected = _selectedDurationMinutes == mins;
              return GestureDetector(
                onTap: () => setState(() => _selectedDurationMinutes = mins),

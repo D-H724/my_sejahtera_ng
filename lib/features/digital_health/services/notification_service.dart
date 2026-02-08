@@ -33,11 +33,37 @@ class NotificationService {
       tzt.setLocalLocation(tzt.getLocation('UTC'));
     }
 
-    // Request permission for Android 13+
+    // Create the channel on the device (Android 8.0+)
+    const AndroidNotificationChannel channel = AndroidNotificationChannel(
+      'medication_channel_v4', // id forced update
+      'Medication Reminders', // title
+      description: 'Critical reminders to take your medication', // description
+      importance: Importance.max,
+      playSound: true,
+      enableVibration: true,
+    );
+
     await flutterLocalNotificationsPlugin
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
-        ?.requestNotificationsPermission();
+        ?.createNotificationChannel(channel);
+
+    // Request permissions
+    await _requestPermissions();
+  }
+
+  Future<void> _requestPermissions() async {
+    if (defaultTargetPlatform == TargetPlatform.android) {
+       final androidImplementation = flutterLocalNotificationsPlugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+       await androidImplementation?.requestNotificationsPermission();
+       await androidImplementation?.requestExactAlarmsPermission(); 
+    } else if (defaultTargetPlatform == TargetPlatform.iOS) {
+       await flutterLocalNotificationsPlugin.resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>()?.requestPermissions(
+         alert: true,
+         badge: true,
+         sound: true,
+       );
+    }
   }
 
   Future<void> scheduleDailyNotification({
@@ -50,7 +76,7 @@ class NotificationService {
 
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
-      'medication_channel',
+      'medication_channel_v4',
       'Medication Reminders',
       channelDescription: 'Reminders to take your medication',
       importance: Importance.max,
@@ -100,7 +126,7 @@ class NotificationService {
 
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
-      'medication_channel',
+      'medication_channel_v4',
       'Medication Reminders',
       channelDescription: 'Reminders to take your medication',
       importance: Importance.max,
@@ -134,19 +160,20 @@ class NotificationService {
         return;
     }
 
+    // Force AlarmClock mode for critical medication reminders (guaranteed to ring)
     await flutterLocalNotificationsPlugin.zonedSchedule(
       id,
       title,
       body,
       scheduledDate,
       platformChannelSpecifics,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      androidScheduleMode: AndroidScheduleMode.alarmClock, // Ensure it wakes up device
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
-      matchDateTimeComponents: null, // Ensure it's a one-time event
+      matchDateTimeComponents: null, 
     );
     
-    debugPrint("✅ Scheduled One-Time Notification [$id] '$title' at $scheduledDate (Now: ${tzt.TZDateTime.now(tzt.local)})");
+    debugPrint("✅ Scheduled Critical Alarm [$id] '$title' at $scheduledDate (Now: ${tzt.TZDateTime.now(tzt.local)})");
   }
 
   tzt.TZDateTime _nextInstanceOfTime(DateTime time) {
