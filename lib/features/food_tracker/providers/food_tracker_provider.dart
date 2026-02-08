@@ -142,7 +142,7 @@ class FoodTrackerNotifier extends StateNotifier<FoodTrackerState> {
             {
               "role": "user",
               "content": [
-                {"type": "text", "text": "Analyze this food image. Identify the food item and estimate calories. Return ONLY valid JSON: {\"food_name\": \"string\", \"calories\": int, \"description\": \"string\"}. Do not include markdown formatting or explanations."},
+                {"type": "text", "text": "Analyze this food image. You are an expert in Malaysian cuisine. Identify the food item (e.g., Nasi Kandar, Nasi Lemak, Kuih) and estimate calories based on local portion sizes. Return ONLY valid JSON: {\"food_name\": \"string\", \"calories\": int, \"description\": \"string\"}. Do not include markdown formatting or explanations."},
                 {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,$base64Image"}}
               ]
             }
@@ -192,7 +192,7 @@ class FoodTrackerNotifier extends StateNotifier<FoodTrackerState> {
           "messages": [
             {
               "role": "system",
-              "content": "You are a nutritionist AI. Analyze the food description. Return ONLY valid JSON: {\"food_name\": \"string\", \"calories\": int, \"description\": \"string\"}. Estimate calories conservatively."
+              "content": "You are a nutritionist AI specializing in Malaysian cuisine. Analyze the food description. If the user inputs a local dish (e.g., 'Nasi Kandar', 'Roti Canai'), estimate calories based on typical Malaysian serving sizes. Return ONLY valid JSON: {\"food_name\": \"string\", \"calories\": int, \"description\": \"string\"}."
             },
             {
               "role": "user",
