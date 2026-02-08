@@ -1239,15 +1239,7 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
                           ),
                         ),
                         
-                        // Medical Disclaimer (Only for AI text messages, hide during booking/transactional flows)
-                        if (!isUser && !isWelcome && msg.type == 'text' && msg.actionWidget == null)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 12),
-                            child: Text(
-                              "⚠️ AI Advice Only. Consult a doctor for medical decisions.",
-                              style: GoogleFonts.outfit(color: Colors.white38, fontSize: 11, fontStyle: FontStyle.italic),
-                            ),
-                          ),
+
                       
 
 
@@ -1360,19 +1352,29 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
   }
 
   Widget _buildFuturisticSuggestions() {
-    final chips = [
-      "Book a Dentist 🦷",
-      "Find Specialist 👨‍⚕️",
-      "Am I safe here? 📍",
-      "Nearest Clinic 🏥",
-      "I took my meds 💊", 
-      "Set Med Reminder ⏰",
-      "Log Lunch 🥗",
-      "Update Vitals 💓",
-      "My digital cert 💉", 
-      "BMI Analysis ⚖️",
-      "Check-in Scan 📷",
-    ];
+    // Dynamic Chips based on Mode
+    final List<String> chips;
+    if (_useSimulatedAI) {
+      chips = [
+        "Check-in Scan 📷",
+        "My digital cert 💉",
+        "Am I safe here? 📍",
+        "Show Hotspots 🗺️",
+      ];
+    } else {
+      chips = [
+        "Book a Dentist 🦷",
+        "Find Specialist 👨‍⚕️",
+        "Am I safe here? 📍",
+        "Nearest Clinic 🏥",
+        "I took my meds 💊", 
+        "Set Med Reminder ⏰",
+        "Update Vitals 💓",
+        "BMI Analysis ⚖️",
+        "Log Lunch 🥗",
+      ];
+    }
+
     return SizedBox(
       height: 50,
       child: ListView.separated(
