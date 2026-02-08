@@ -22,12 +22,16 @@ class HotspotScreen extends StatefulWidget {
 
 class _HotspotScreenState extends State<HotspotScreen> {
   LatLng? _currentPosition;
+  LatLng? _mapCenter; // Track the current center of the map
   bool _isLoading = true;
   String _statusMessage = "Locating you...";
   final MapController _mapController = MapController();
   final TextEditingController _searchController = TextEditingController();
   List<CircleMarker> _hotspots = [];
   final FlutterLocalNotificationsPlugin _notificationsPlugin = FlutterLocalNotificationsPlugin();
+  
+  // UI State
+  bool _isCardExpanded = false; // For the bottom card
 
   @override
   void initState() {
@@ -101,6 +105,7 @@ class _HotspotScreenState extends State<HotspotScreen> {
       final latLng = LatLng(position.latitude, position.longitude);
       setState(() {
         _currentPosition = latLng;
+        _mapCenter = latLng; // Initialize map center
         _isLoading = false;
         _hotspots = _generateRandomHotspots(latLng);
       });
@@ -159,6 +164,7 @@ class _HotspotScreenState extends State<HotspotScreen> {
     final latLng = LatLng(lat, lng);
     _mapController.move(latLng, 15);
     setState(() {
+        _mapCenter = latLng; // Update map center
         // Generate new fictional hotspots for the searched area
         _hotspots = _generateRandomHotspots(latLng);
     });
@@ -166,7 +172,11 @@ class _HotspotScreenState extends State<HotspotScreen> {
 
   List<CircleMarker> _generateRandomHotspots(LatLng center) {
     final random = Random();
-    return List.generate(5, (index) {
+    // Predictive mode shows MORE hotspots (simulating future spread)
+    int count = _isPredictiveMode ? 8 : 5; 
+    Color color = _isPredictiveMode ? Colors.orangeAccent : Colors.red;
+    
+    return List.generate(count, (index) {
       // Generate random offset within ~1km
       final latOffset = (random.nextDouble() - 0.5) * 0.02;
       final lngOffset = (random.nextDouble() - 0.5) * 0.02;
@@ -175,16 +185,101 @@ class _HotspotScreenState extends State<HotspotScreen> {
         point: LatLng(center.latitude + latOffset, center.longitude + lngOffset),
         radius: 100 + random.nextDouble() * 200, // 100-300m radius
         useRadiusInMeter: true,
-        color: Colors.red.withValues(alpha: 0.3),
-        borderColor: Colors.red,
+        color: color.withValues(alpha: 0.3),
+        borderColor: color,
         borderStrokeWidth: 2,
       );
     });
   }
 
+  bool _isPredictiveMode = false;
+
+  // ... existing methods ...
+
+  void _togglePredictiveMode(bool value) {
+    setState(() {
+      _isPredictiveMode = value;
+      // Use _mapCenter for generation so it works on searched locations too
+      if (_mapCenter != null) {
+        _hotspots = _generateRandomHotspots(_mapCenter!);
+      } else if (_currentPosition != null) {
+        _hotspots = _generateRandomHotspots(_currentPosition!);
+      }
+    });
+  }
+
+  void _showDetailedAnalysis() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1E1E1E),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          border: Border(top: BorderSide(color: Colors.white.withOpacity(0.1))),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                 Icon(_isPredictiveMode ? LucideIcons.radar : LucideIcons.alertCircle, 
+                      color: _isPredictiveMode ? Colors.orangeAccent : Colors.redAccent, size: 28),
+                 const SizedBox(width: 12),
+                 Text(
+                   _isPredictiveMode ? "AI Crowd Analysis" : "Outbreak Details",
+                   style: GoogleFonts.outfit(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)
+                 ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            _buildDetailRow("Calculated Risk Score", _isPredictiveMode ? "High (78%)" : "Medium (45%)"),
+            _buildDetailRow("Est. Active Cases", _isPredictiveMode ? "~142 (Projected)" : "34 (Confirmed)"),
+            _buildDetailRow("Crowd Density", _isPredictiveMode ? "Very High 👥" : "Moderate"),
+            _buildDetailRow("Last Updated", "Just now"),
+            const SizedBox(height: 24),
+            Text(
+              _isPredictiveMode 
+                ? "Recommendation: The AI model predicts a surge in crowd density due to upcoming events/hours. Avoid this area for the next 3-4 hours to minimize exposure risk."
+                : "Standard Protocol: Maintain 1 meter distance. Double-masking recommended in this zone.",
+              style: const TextStyle(color: Colors.white70, fontSize: 15, height: 1.5),
+            ),
+            const SizedBox(height: 30),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white.withOpacity(0.1),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
+                ),
+                child: const Text("Close Report", style: TextStyle(color: Colors.white)),
+              ),
+            )
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(color: Colors.white54, fontSize: 16)),
+          Text(value, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Count hotspots "near" the center of the map
     int riskCount = _hotspots.length; 
 
     return Scaffold(
@@ -198,50 +293,35 @@ class _HotspotScreenState extends State<HotspotScreen> {
       body: _isLoading
           ? Container(
               color: const Color(0xFF0F2027),
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const CircularProgressIndicator(color: Colors.blueAccent),
-                    const SizedBox(height: 20),
-                    Text(_statusMessage,
-                        style: const TextStyle(color: Colors.white)),
-                  ],
-                ),
-              ),
+              child: const Center(child: CircularProgressIndicator(color: Colors.blueAccent)),
             )
           : Stack(
               children: [
                 FlutterMap(
                   mapController: _mapController,
                   options: MapOptions(
-                    initialCenter: _currentPosition ?? const LatLng(3.1390, 101.6869), // Fallback to KL
+                    initialCenter: _currentPosition ?? const LatLng(3.1390, 101.6869),
                     initialZoom: 15.0,
                   ),
                   children: [
                     TileLayer(
-                      urlTemplate:
-                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                       userAgentPackageName: 'com.mysj.nextgen',
                     ),
-                    // Hotspots Layer
                     CircleLayer(circles: _hotspots),
-                    // User Location Layer
                     if (_currentPosition != null)
                       MarkerLayer(
                         markers: [
                           Marker(
                             point: _currentPosition!,
-                            width: 60,
-                            height: 60,
+                            width: 60, height: 60,
                             child: Container(
                               decoration: BoxDecoration(
                                 color: Colors.blueAccent.withValues(alpha: 0.3),
                                 shape: BoxShape.circle,
                                 border: Border.all(color: Colors.white, width: 2),
                               ),
-                              child: const Icon(LucideIcons.user,
-                                  color: Colors.white, size: 30),
+                              child: const Icon(LucideIcons.user, color: Colors.white, size: 30),
                             ),
                           ),
                         ],
@@ -259,7 +339,7 @@ class _HotspotScreenState extends State<HotspotScreen> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 15),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1E1E1E), // Solid dark color
+                            color: const Color(0xFF1E1E1E),
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(color: Colors.white24, width: 1),
                             boxShadow: [
@@ -275,19 +355,49 @@ class _HotspotScreenState extends State<HotspotScreen> {
                             style: const TextStyle(color: Colors.white),
                             onSubmitted: _searchLocation,
                             decoration: InputDecoration(
-                              hintText: "Search location...",
-                              hintStyle: const TextStyle(color: Colors.white54),
-                              border: InputBorder.none,
-                              icon: const Icon(LucideIcons.search,
-                                  color: Colors.white54),
-                              suffixIcon: IconButton(
-                                icon: const Icon(LucideIcons.arrowRight, color: Colors.blueAccent),
-                                onPressed: () => _searchLocation(_searchController.text),
-                              )
+                                hintText: "Search location...",
+                                hintStyle: const TextStyle(color: Colors.white54),
+                                border: InputBorder.none,
+                                icon: const Icon(LucideIcons.search, color: Colors.white54),
+                                suffixIcon: IconButton(
+                                  icon: const Icon(LucideIcons.arrowRight, color: Colors.blueAccent),
+                                  onPressed: () => _searchLocation(_searchController.text),
+                                )
                             ),
                           ),
                         ),
                       ),
+
+                      // Predictive Toggle
+                      Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 20),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.6),
+                          borderRadius: BorderRadius.circular(30),
+                          border: Border.all(color: _isPredictiveMode ? Colors.orangeAccent : Colors.grey.withValues(alpha: 0.5)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              "Predictive Radar (AI)", 
+                              style: GoogleFonts.outfit(
+                                color: _isPredictiveMode ? Colors.orangeAccent : Colors.white,
+                                fontWeight: FontWeight.bold
+                              )
+                            ),
+                            const SizedBox(width: 10),
+                            Switch(
+                              value: _isPredictiveMode,
+                              onChanged: _togglePredictiveMode,
+                              activeColor: Colors.orangeAccent,
+                              activeTrackColor: Colors.orangeAccent.withValues(alpha: 0.3),
+                            ),
+                          ],
+                        ),
+                      ),
+
                       const Spacer(),
                       
                       // FAB to recenter
@@ -310,63 +420,108 @@ class _HotspotScreenState extends State<HotspotScreen> {
                   ),
                 ),
 
-                // Improved Glass Overlay Controls
+                  // Enhanced Bottom Card (Redesigned)
                 Positioned(
-                  bottom: 40,
-                  left: 20,
-                  right: 20,
-                  child: GlassContainer(
-                    borderRadius: BorderRadius.circular(24),
-                    padding: const EdgeInsets.all(24),
-                    color: Colors.black.withOpacity(0.85), // Darker for better contrast
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.redAccent.withOpacity(0.2),
-                                shape: BoxShape.circle
+                  bottom: 24,
+                  left: 16,
+                  right: 16,
+                  child: GestureDetector(
+                    onTap: () => setState(() => _isCardExpanded = !_isCardExpanded), // Toggle expand
+                    child: Container(
+                      decoration: BoxDecoration(
+                         // Solid dark color like 0xFF1E1E1E ensures readability
+                         color: const Color(0xFF1E1E1E), 
+                         borderRadius: BorderRadius.circular(24),
+                         border: Border.all(color: Colors.white.withOpacity(0.1)),
+                         boxShadow: [
+                           BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 20, offset: const Offset(0, 10))
+                         ]
+                      ),
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Header (Always Visible)
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: (_isPredictiveMode ? Colors.orangeAccent : Colors.redAccent).withOpacity(0.2),
+                                  shape: BoxShape.circle
+                                ),
+                                child: Icon(
+                                  _isPredictiveMode ? LucideIcons.radar : LucideIcons.alertTriangle, 
+                                  color: _isPredictiveMode ? Colors.orangeAccent : Colors.redAccent, 
+                                  size: 24
+                                ),
                               ),
-                              child: const Icon(LucideIcons.alertTriangle, color: Colors.redAccent, size: 24),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text("High Risk Areas Nearby", style: GoogleFonts.outfit(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                                  Text("$riskCount Active Hotspots", style: GoogleFonts.outfit(color: Colors.redAccent, fontSize: 14, fontWeight: FontWeight.w600)),
-                                ],
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _isPredictiveMode ? "AI Crowd Forecast" : "Risk Monitor", 
+                                      style: GoogleFonts.outfit(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)
+                                    ),
+                                    Text(
+                                      _isPredictiveMode ? "High Activity Projected" : "$riskCount Active Hotspots", 
+                                      style: GoogleFonts.outfit(
+                                        color: _isPredictiveMode ? Colors.orangeAccent : Colors.redAccent, 
+                                        fontSize: 14, 
+                                        fontWeight: FontWeight.w600
+                                      )
+                                    ),
+                                  ],
+                                ),
                               ),
-                            )
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          "You are currently entering a zone with reported cases. Please wear a mask and sanitize frequently.",
-                          style: GoogleFonts.outfit(color: Colors.white, fontSize: 16, height: 1.4), // Increased size and contrast
-                        ),
-                        const SizedBox(height: 20),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            onPressed: (){},
-                            icon: const Icon(LucideIcons.mapPin),
-                            label: const Text("View Detailed Map"),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.redAccent,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)
-                            ),
+                              // Expand/Collapse Icon
+                              Icon(
+                                _isCardExpanded ? LucideIcons.chevronDown : LucideIcons.chevronUp,
+                                color: Colors.white54,
+                              )
+                            ],
                           ),
-                        )
-                      ],
+                          
+                          // Expanded Content
+                          AnimatedCrossFade(
+                            firstChild: const SizedBox.shrink(),
+                            secondChild: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const SizedBox(height: 16),
+                                Divider(color: Colors.white.withOpacity(0.1)),
+                                const SizedBox(height: 16),
+                                Text(
+                                  _isPredictiveMode 
+                                      ? "AI simulations indicate a 45% increase in crowd density for this location over the next 4 hours. Infection probability is elevated."
+                                      : "This area has active reported cases within a 1km radius. Please verify your check-in status and maintain social distancing.",
+                                  style: GoogleFonts.outfit(color: Colors.white70, fontSize: 15, height: 1.5),
+                                ),
+                                const SizedBox(height: 20),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton.icon(
+                                    onPressed: _showDetailedAnalysis,
+                                    icon: const Icon(LucideIcons.fileBarChart),
+                                    label: const Text("View Full Analysis"),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: _isPredictiveMode ? Colors.orangeAccent : Colors.redAccent,
+                                      foregroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                      padding: const EdgeInsets.symmetric(vertical: 14),
+                                      textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)
+                                    ),
+                                  ),
+                                )
+                              ],
+                            ),
+                            crossFadeState: _isCardExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+                            duration: const Duration(milliseconds: 300),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 )

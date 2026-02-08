@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,21 +13,37 @@ import 'package:my_sejahtera_ng/features/hotspots/screens/hotspot_screen.dart';
 import 'package:my_sejahtera_ng/features/vaccine/screens/vaccine_screen.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:my_sejahtera_ng/core/providers/user_provider.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_tts/flutter_tts.dart';
+import 'package:lucide_icons/lucide_icons.dart';
+import 'package:my_sejahtera_ng/core/providers/user_provider.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:my_sejahtera_ng/features/health_assistant/providers/appointment_provider.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:my_sejahtera_ng/features/digital_health/providers/medication_provider.dart';
+import 'package:my_sejahtera_ng/features/digital_health/models/medication.dart';
+import 'package:my_sejahtera_ng/features/digital_health/screens/medication_tracker_screen.dart';
 
 // Chat Message Model
 class ChatMessage {
   final String text;
   final bool isUser;
   final bool isError;
-  final Widget? actionWidget; // Widget to display for actions (e.g. Buttons)
-  final String? imagePath; // Path to image asset
+  final Widget? actionWidget;
+  final String? type; // 'text', 'time_slots', 'summary', 'clinic_list', 'choice_chips'
+  final Map<String, dynamic>? metaData;
 
   ChatMessage({
     required this.text,
     required this.isUser,
     this.isError = false,
     this.actionWidget,
-    this.imagePath,
+    this.type = 'text',
+    this.metaData,
   });
 }
 
@@ -68,6 +85,7 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
   bool _isLoading = false;
   final bool _isInitializing = false;
   bool _useSimulatedAI = false;
+  bool _isEmergency = false; // Emergency Mode Flagult
 
   @override
   void initState() {
@@ -155,6 +173,84 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
     if (manualText == null) _controller.clear();
     _scrollToBottom();
 
+    // 0. Emergency Check (SOS Mode)
+    if (text.toLowerCase().contains("emergency") || 
+        text.toLowerCase().contains("sos") || 
+        text.toLowerCase().contains("chest pain") || 
+        text.toLowerCase().contains("heart attack") || 
+        text.toLowerCase().contains("can't breathe")) {
+      
+      setState(() => _isEmergency = true);
+      HapticFeedback.heavyImpact();
+      return;
+    }
+
+    // 1. Check for Appointment Booking Flow
+    final appointmentState = ref.read(appointmentProvider);
+    if (appointmentState.isBooking) {
+      _handleBookingStep(text);
+      return;
+    }
+
+    // 2. Medication Assistant NLU
+    // Intent: "Remind me to take [Meds] at [Time]"
+    final remindRegex = RegExp(r"remind me to take (.+) at (.+)", caseSensitive: false);
+    final remindMatch = remindRegex.firstMatch(text);
+    
+    if (remindMatch != null) {
+       final medName = remindMatch.group(1)!.trim();
+       final timeStr = remindMatch.group(2)!.trim();
+       
+       // Parse Time
+       final time = _parseTime(timeStr);
+       
+       // Add to Provider
+       final newMed = Medication(
+         name: medName, 
+         dosage: "1 pill", // Default
+         pillsToTake: 1, 
+         time: time, 
+         instructions: "Reminded via AI"
+       );
+       
+       ref.read(medicationProvider.notifier).addMedication(newMed);
+       
+       const response = "Done! 💊 I've added a reminder.";
+       ref.read(chatProvider.notifier).addMessage(ChatMessage(
+         text: "I've set a reminder for **$medName** at **${DateFormat.jm().format(time)}**.",
+         isUser: false,
+         actionWidget: _buildActionChip("View Meds", Colors.teal, const MedicationTrackerScreen()),
+       ));
+       _speak(response);
+       return;
+    }
+
+    // Intent: "Did I take my [Meds]?"
+    if (text.toLowerCase().contains("did i take")) {
+       final meds = ref.read(medicationProvider).medications;
+       // Simple check: filter by today and name if possible, or just show status
+       // For demo, just show summary
+       final takenCount = meds.where((m) => m.isTaken).length;
+       final total = meds.length;
+       
+       String response = "You have taken $takenCount out of $total medications today.";
+       if (takenCount == total && total > 0) response = "Yes! You are all caught up. 🎉";
+       else if (total == 0) response = "You don't have any medications tracked for today.";
+       
+       ref.read(chatProvider.notifier).addMessage(ChatMessage(
+         text: response,
+         isUser: false,
+       ));
+       _speak(response);
+       return;
+    }
+
+    if (text.toLowerCase().contains("book") && (text.toLowerCase().contains("appointment") || text.toLowerCase().contains("consultation"))) {
+      ref.read(appointmentProvider.notifier).startBooking();
+      _handleBookingStep(text); // Start flow
+      return;
+    }
+
     if (_useSimulatedAI) {
       _handleSimulatedResponse(text);
       return;
@@ -167,49 +263,16 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
       if (!mounted) return;
       
       Widget? action;
-      String? imagePath;
-      
-      // 1. Prioritize User Input for specific intent
-      final userLower = text.toLowerCase();
-      // Randomizer for variety
-      final random = DateTime.now().millisecondsSinceEpoch % 2 == 0; 
-
-      if (userLower.contains("diet") || userLower.contains("food") || userLower.contains("eat") || userLower.contains("nutrition")) {
-         imagePath = "assets/images/ai/healthy_diet.png";
-      } else if (userLower.contains("water") || userLower.contains("drink") || userLower.contains("hydrate") || userLower.contains("thirst")) {
-         imagePath = "assets/images/ai/hydration_water.png";
-      } else if (userLower.contains("sleep") || userLower.contains("insomnia") || userLower.contains("rest") || userLower.contains("tired") || userLower.contains("bed")) {
-         imagePath = "assets/images/ai/sleep_rest.png";
-      } else if (userLower.contains("exercise") || userLower.contains("run") || userLower.contains("gym") || userLower.contains("fitness") || userLower.contains("workout")) {
-         imagePath = "assets/images/ai/exercise.png";
-      } else if (userLower.contains("yoga") || userLower.contains("meditation") || userLower.contains("zen")) {
-         imagePath = "assets/images/ai/yoga_meditation.png";
-      } else if (userLower.contains("mental") || userLower.contains("stress") || userLower.contains("sad") || userLower.contains("relax") || userLower.contains("anxiety")) {
-         // 50% chance to show Yoga image for general mental health queries for variety
-         imagePath = random ? "assets/images/ai/mental_wellness.png" : "assets/images/ai/yoga_meditation.png";
-      } else if (userLower.contains("vaccine") || userLower.contains("dose") || userLower.contains("booster") || userLower.contains("immunization")) {
-         imagePath = "assets/images/ai/vaccination.png";
-      } else if (userLower.contains("virus") || userLower.contains("cov") || userLower.contains("flu") || userLower.contains("protect") || userLower.contains("mask")) {
-         imagePath = "assets/images/ai/virus_protection.png";
-      } else if (userLower.contains("doctor") || userLower.contains("sick") || userLower.contains("pain") || userLower.contains("hospital") || userLower.contains("clinic")) {
-         imagePath = "assets/images/ai/doctor_consult.png";
-      }
 
       // 2. Action Detection & Fallback Logic
-      if (imagePath == null) {
-        final combinedContext = "${text.toLowerCase()} ${responseText.toLowerCase()}";
+      final combinedContext = "${text.toLowerCase()} ${responseText.toLowerCase()}";
 
-        if (combinedContext.contains("check in") || combinedContext.contains("scan")) {
-          action = _buildActionChip("Open Scanner", Colors.blueAccent, const CheckInScreen());
-          imagePath = "assets/images/ai/general_health.png";
-        } else if (combinedContext.contains("vaccine") || combinedContext.contains("certificate")) {
-          action = _buildActionChip("View Vaccine", Colors.amber, const VaccineScreen());
-          imagePath ??= "assets/images/ai/vaccination.png";
-        } else if (combinedContext.contains("hotspot") || combinedContext.contains("map") || combinedContext.contains("risk")) {
-          action = _buildActionChip("Check Hotspots", Colors.redAccent, const HotspotScreen());
-        } else if (combinedContext.contains("health") || combinedContext.contains("medical")) {
-            imagePath = "assets/images/ai/general_health.png";
-        }
+      if (combinedContext.contains("check in") || combinedContext.contains("scan")) {
+        action = _buildActionChip("Open Scanner", Colors.blueAccent, const CheckInScreen());
+      } else if (combinedContext.contains("vaccine") || combinedContext.contains("certificate")) {
+        action = _buildActionChip("View Vaccine", Colors.amber, const VaccineScreen());
+      } else if (combinedContext.contains("hotspot") || combinedContext.contains("map") || combinedContext.contains("risk")) {
+        action = _buildActionChip("Check Hotspots", Colors.redAccent, const HotspotScreen());
       }
 
       HapticFeedback.mediumImpact(); // Haptic for receive
@@ -217,7 +280,6 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
         text: responseText, 
         isUser: false, 
         actionWidget: action,
-        imagePath: imagePath
       ));
       await _speak(responseText);
     } catch (e) {
@@ -238,14 +300,314 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
     }
   }
 
+  void _handleBookingStep(String userText) {
+    final state = ref.read(appointmentProvider);
+    final notifier = ref.read(appointmentProvider.notifier);
+    
+    // 0. Global Cancellation Check
+    final lowerInput = userText.toLowerCase();
+    if (lowerInput.contains("cancel") || lowerInput.contains("stop") || lowerInput.contains("abort")) {
+      ref.read(appointmentProvider.notifier).state = state.copyWith(
+        isBooking: false,
+        bookingStep: 0,
+        tempBookingData: {},
+      );
+      ref.read(chatProvider.notifier).addMessage(ChatMessage(
+        text: "Booking cancelled. Let me know if you need anything else! 👋",
+        isUser: false,
+      ));
+      return;
+    }
+
+    // Simulate thinking delay
+    setState(() => _isLoading = true);
+    Future.delayed(const Duration(milliseconds: 1000), () {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      
+      String response = "";
+      String? msgType;
+      Map<String, dynamic>? meta;
+      
+      // Make step mutable for NLU jumps
+      int step = state.bookingStep;
+
+       // --- STEP 1: APPOINTMENT TYPE (Initial Trigger Analysis) ---
+       if (step == 1) {
+         // Declared outside to be accessible
+         bool locationDetected = false;
+
+         // NLU: Check if user already specified type/location in the initial prompt
+         String? detectedType;
+         if (lowerInput.contains("dental") || lowerInput.contains("dentist")) detectedType = "Dental";
+         else if (lowerInput.contains("vaccin")) detectedType = "Vaccination";
+         else if (lowerInput.contains("consult") || lowerInput.contains("doctor")) detectedType = "Consultation";
+         else if (lowerInput.contains("screen") || lowerInput.contains("checkup")) detectedType = "General Screening";
+
+         if (detectedType != null) {
+            notifier.updateTempData('appointmentType', detectedType);
+            
+            // NLU: Check for Location Context
+            // Case A: "Nearby" -> Use Current Location
+            if (lowerInput.contains("nearby") || lowerInput.contains("near me")) {
+               // User wants current location
+               notifier.nextStep(); // Skip Step 1
+               notifier.updateTempData('manual_mode_active', false);
+               // Trigger GPS immediately? No, async gap. 
+               // We'll set state to Step 3 and call it manually or let the next loop handle it?
+               // Better flow: Just acknowledge type and ask location.
+               response = "Got it, a **$detectedType** appointment. \n\nHow would you like to find a clinic?";
+               msgType = 'choice_chips';
+               meta = {'choices': ['Use Current Location 📍', 'Select Manually 🗺️']};
+               notifier.nextStep(); // -> Step 2 (Wait, we need to advance to Step 2 then 3?)
+               
+               // Refined Logic for "at [Location]"
+               final locRegex = RegExp(r'(?:at|in|nearby)\s+([a-zA-Z\s]+)');
+               final match = locRegex.firstMatch(lowerInput);
+               if (match != null && !lowerInput.contains("current location")) {
+                  String loc = match.group(1)!.trim();
+                  if (loc.isNotEmpty && loc != "nearby") {
+                     notifier.updateTempData('manual_mode_active', true);
+                     
+                     // Simulate manual search directly
+                     final clinics = _mockClinicSearch(loc);
+                     response = "I see matches for appointments at **$loc** ($detectedType). \n\nSelect a clinic:";
+                     msgType = 'clinic_list';
+                     meta = {'clinics': clinics};
+                     
+                     locationDetected = true;
+                  }
+               }
+            } else {
+               // Check for manual location if "nearby" wasn't triggered but "at [Location]" was
+               final locRegex = RegExp(r'(?:at|in|nearby)\s+([a-zA-Z\s]+)');
+               final match = locRegex.firstMatch(lowerInput);
+               if (match != null && !lowerInput.contains("current location")) {
+                  String loc = match.group(1)!.trim();
+                  if (loc.isNotEmpty && loc != "nearby") {
+                     notifier.updateTempData('manual_mode_active', true);
+                     final clinics = _mockClinicSearch(loc);
+                     response = "I see matches for appointments at **$loc** ($detectedType). \n\nSelect a clinic:";
+                     msgType = 'clinic_list';
+                     meta = {'clinics': clinics};
+                     locationDetected = true;
+                  }
+               }
+            }
+            
+            if (locationDetected) {
+                // Determine step adjustment based on above logic
+                // If we showed clinics, we need to be at Step 3.
+                // We are currently at Step 1.
+                notifier.nextStep(); // -> 2
+                notifier.nextStep(); // -> 3
+            } else if (!lowerInput.contains("nearby") && !lowerInput.contains("near me")) {
+               // Only found Type, ask for Location
+               response = "Understood, **$detectedType**. \n\nHow would you like to find a clinic?";
+               msgType = 'choice_chips';
+               meta = {'choices': ['Use Current Location 📍', 'Select Manually 🗺️']};
+               notifier.nextStep(); // -> Step 2
+            }
+           
+         } else {
+              // No type detected, ask standard question
+              response = "To get started, what type of appointment do you need?";
+              msgType = 'choice_chips';
+              meta = {'choices': ['General Screening', 'Vaccination', 'Dental', 'Consultation']};
+              notifier.nextStep(); // -> Step 2
+         }
+       } 
+      
+      // --- STEP 2: LOCATION METHOD ---
+      else if (step == 2) {
+        // User just selected Type
+        if (['General Screening', 'Vaccination', 'Dental', 'Consultation'].contains(userText)) {
+             notifier.updateTempData('appointmentType', userText);
+             response = "Understood, $userText. \n\nHow would you like to find a clinic?";
+             msgType = 'choice_chips';
+             meta = {'choices': ['Use Current Location 📍', 'Select Manually 🗺️']};
+             notifier.nextStep(); // -> Step 3
+        } else {
+             // Fallback
+             response = "Please select a valid appointment type from the options above.";
+        }
+      }
+
+      // --- STEP 3: CLINIC SELECTION ---
+      else if (step == 3) {
+        // User just selected Location Method
+        
+        if (userText.contains("Current Location")) {
+             _handleGPSLocationRequest(notifier);
+             return; // Exit here, async gap will handle the rest
+        } else if (userText.contains("Manually")) {
+             response = "No problem. Which city or state are you looking in? (e.g. 'KL' or 'Penang')";
+             notifier.updateTempData('manual_mode_active', true);
+        } else {
+             // If they typed a city name manually (handling the 'Select Manually' flow)
+             if (state.tempBookingData['manual_mode_active'] == true) {
+                 final location = userText.toLowerCase();
+                 List<Map<String, dynamic>> clinics = [];
+                 
+                 if (location.contains("kl") || location.contains("lumpur")) {
+                    clinics = [
+                      {"name": "Klinik Kesihatan Kuala Lumpur", "dist": "3.2 km"},
+                      {"name": "Hospital Kuala Lumpur", "dist": "5.1 km"}
+                    ];
+                    response = "Here are the clinics available in KL:";
+                 } else if (location.contains("penang") || location.contains("pinang")) {
+                    clinics = [
+                      {"name": "Hospital Penang", "dist": "2.4 km"},
+                      {"name": "Klinik Georgetown", "dist": "4.0 km"}
+                    ];
+                    response = "Clinics found in Penang:";
+                 } else {
+                    clinics = [
+                      {"name": "General Clinic (Near You)", "dist": "Unknown"},
+                      {"name": "Community Health Center", "dist": "Unknown"}
+                    ];
+                    response = "Here are some general options nearby:";
+                 }
+                 
+                 // Manually construct the string list for now as the picker expects simple strings or objects
+                 // But wait, the picker expects objects or strings? The picker logic needs to change to handle distance.
+                 // For now, I'll format the name string to include distance for display simplicity.
+                 // Or better yet, I should update the picker to take a Map.
+                 // Let's stick to the current picker implementation which takes a List<dynamic>. 
+                 // I'll format the string like "Clinic Name|Distance" and parse it in the widget.
+                 
+                 final clinicStrings = clinics.map((c) => "${c['name']}|${c['dist']}").toList();
+                 
+                 msgType = 'clinic_list';
+                 meta = {'clinics': clinicStrings};
+                 notifier.nextStep(); // -> Step 4
+             } else {
+                 response = "Please choose a location method first.";
+             }
+        }
+      }
+
+      // --- STEP 4: TIME SELECTION ---
+      else if (step == 4) {
+         // User just selected Clinic
+         notifier.updateTempData('clinicName', userText);
+         
+         // Logic: Filter out past times
+         final now = DateTime.now();
+         final allSlots = ['09:00 AM', '10:30 AM', '11:00 AM', '02:00 PM', '03:30 PM', '04:30 PM', '08:00 PM'];
+         
+         List<String> availableSlots = [];
+         for (var slot in allSlots) {
+             try {
+               final slotDate = _parseTime(slot);
+               // If slot is in the future relative to now (give 15 min buffer)
+               if (slotDate.isAfter(now.add(const Duration(minutes: 15)))) {
+                 availableSlots.add(slot);
+               }
+             } catch (e) { /* ignore */ }
+         }
+         
+         if (availableSlots.isEmpty) {
+           availableSlots = ['Tomorrow 09:00 AM', 'Tomorrow 11:00 AM']; // Fallback
+         }
+
+         response = "Checking availability at $userText... 🏥";
+         
+         ref.read(chatProvider.notifier).addMessage(ChatMessage(text: response, isUser: false));
+         _scrollToBottom();
+
+         // Delayed "Found slots" message
+         Future.delayed(const Duration(milliseconds: 1500), () {
+            if (!mounted) return;
+            final finalResponse = "Verified. Here are the available slots for today:";
+            ref.read(chatProvider.notifier).addMessage(ChatMessage(
+              text: finalResponse,
+              isUser: false,
+              type: 'time_slots',
+              metaData: {'slots': availableSlots},
+            ));
+            _speak(finalResponse);
+            _scrollToBottom();
+         });
+         
+         notifier.nextStep(); // -> Step 5
+      } 
+      
+      // --- STEP 5: PHONE INPUT ---
+      else if (step == 5) {
+         // User just selected Time
+         if (userText.contains("AM") || userText.contains("PM")) {
+             final parsedTime = _parseTime(userText); // Parse the time string
+             notifier.updateTempData('selectedTime', parsedTime); 
+             response = "Time locked ($userText). \n\nWhat is your phone number for contact?";
+             notifier.nextStep(); // -> Step 6
+         } else {
+             response = "Please tap a time slot above to proceed.";
+         }
+      }
+
+      // --- STEP 6: EMAIL INPUT ---
+      else if (step == 6) {
+        // User just entered Phone - VALIDATE IT
+        final phoneRegex = RegExp(r'^\+?[\d\-\s]{9,15}$'); // Basic phone validation
+        if (phoneRegex.hasMatch(userText)) {
+            notifier.updateTempData('phone', userText);
+            response = "Thanks. Lastly, what is your email address?";
+            notifier.nextStep(); // -> Step 7
+        } else {
+            response = "That doesn't look like a valid phone number. Please try again (e.g. 012-3456789).";
+            // Don't advance step
+        }
+      }
+
+      // --- STEP 7: CONFIRMATION ---
+      else if (step == 7) {
+        // User just entered Email - VALIDATE IT
+        final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+        if (emailRegex.hasMatch(userText)) {
+            notifier.updateTempData('email', userText);
+            notifier.confirmBooking();
+            response = "All done! Your appointment for **${state.tempBookingData['appointmentType']}** at **${state.tempBookingData['clinicName']}** is confirmed.";
+            msgType = 'summary';
+        } else {
+            response = "That email seems invalid. Please enter a valid email address (e.g. name@result.com).";
+            // Don't advance step
+        }
+      }
+
+      ref.read(chatProvider.notifier).addMessage(ChatMessage(
+        text: response,
+        isUser: false,
+        type: msgType,
+        metaData: meta,
+      ));
+      _speak(response);
+      _scrollToBottom();
+    });
+  }
+
   Future<String> _fetchGroqResponse(String userMessage) async {
     // Get conversation history to send context
     final currentMessages = ref.read(chatProvider);
+    final user = ref.read(userProvider);
     
+    String systemPrompt = "You are MySejahtera NG's advanced AI Health Assistant. You are concise, friendly, and knowledgeable about public health.";
+    
+    if (user != null) {
+      systemPrompt += "\n\nUser Context:\n"
+          "- Name: ${user.fullName}\n"
+          "- Medical Conditions: ${user.medicalCondition}\n"
+          "- Allergies: ${user.allergies}\n"
+          "- Blood Type: ${user.bloodType}\n"
+          "\nUse this medical profile to provide personalized advice. If they report symptoms matches their conditions, warn them accordingly. Always advise consulting a doctor for serious issues.";
+    }
+    
+
+
     // Groq uses OpenAI-compatible format
     // OpenAI API expects: {"role": "user"|"assistant"|"system", "content": "text"}
     final List<Map<String, String>> apiMessages = [
-      {"role": "system", "content": "You are MySejahtera NG's helpful health assistant. You are concise, friendly, and knowledgeable about COVID-19 and public health. Please keep your responses short and to the point. Use markdown bullet points for lists to make them easy to read. Avoid using decorative asterisks or excessive bold text unless necessary for emphasis."}
+      {"role": "system", "content": systemPrompt}
     ];
 
     // Add last few messages for context (limit to last 10 to save tokens)
@@ -303,31 +665,24 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
     final lowerText = text.toLowerCase();
     String response = "I'm in Offline Mode. I can help you navigate to Check-In, Vaccine, or Hotspots.";
     Widget? action;
-    String? imagePath;
 
     if (lowerText.contains("check in") || lowerText.contains("scan")) {
       response = "Opening the Check-In scanner for you...";
       action = _buildActionChip("Launch Scanner", Colors.blueAccent, const CheckInScreen());
-      imagePath = "assets/images/ai/general_health.png";
     } else if (lowerText.contains("vaccine") || lowerText.contains("certificate")) {
       response = "Here is your vaccination status. Staying vaccinated protects you and your community.";
       action = _buildActionChip("Show Certificate", Colors.amber, const VaccineScreen());
-      imagePath = "assets/images/ai/vaccination.png";
     } else if (lowerText.contains("hotspot") || lowerText.contains("map")) {
       response = "Checking nearby risk zones. Please stay safe!";
       action = _buildActionChip("Open Hotspot Map", Colors.redAccent, const HotspotScreen());
     } else if (lowerText.contains("health") || lowerText.contains("vital") || lowerText.contains("digital")) {
       response = "Did you know you can track your vitals in the Digital Health section?";
-      imagePath = "assets/images/ai/general_health.png";
     } else if (lowerText.contains("diet") || lowerText.contains("food") || lowerText.contains("eat")) {
       response = "A balanced diet is key to good health! Include plenty of fruits, vegetables, and lean proteins.";
-      imagePath = "assets/images/ai/healthy_diet.png";
     } else if (lowerText.contains("exercise") || lowerText.contains("run") || lowerText.contains("gym") || lowerText.contains("fitness")) {
       response = "Regular exercise improves heart health and mood. Try to get at least 30 minutes of activity today!";
-      imagePath = "assets/images/ai/exercise.png";
     } else if (lowerText.contains("mental") || lowerText.contains("stress") || lowerText.contains("sad") || lowerText.contains("relax")) {
       response = "Your mental wellness matters. Take a moment to breathe and center yourself.";
-      imagePath = "assets/images/ai/mental_wellness.png";
     }
 
     Future.delayed(const Duration(seconds: 1), () {
@@ -339,7 +694,6 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
         text: response, 
         isUser: false, 
         actionWidget: action,
-        imagePath: imagePath
       ));
       _speak(response);
       _scrollToBottom();
@@ -372,6 +726,123 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
     ).animate().fadeIn().slideY();
   }
 
+  Future<void> _handleGPSLocationRequest(AppointmentNotifier notifier) async {
+    setState(() => _isLoading = true);
+    
+    String response = "";
+    
+    try {
+      // 1. Check Permissions
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        throw "Location services are disabled. Please enable them.";
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          throw "Location permission denied.";
+        }
+      }
+      
+      if (permission == LocationPermission.deniedForever) {
+        throw "Location permission is permanently denied.";
+      }
+
+      // 2. Get Position
+      Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      
+      // 3. Expanded Mock Real Clinic Data (Malaysia)
+      final allClinics = [
+        // Kuala Lumpur / Selangor
+        {"name": "Klinik Kesihatan Kuala Lumpur", "lat": 3.1729, "lng": 101.7018},
+        {"name": "Hospital Kuala Lumpur", "lat": 3.1716, "lng": 101.7029},
+        {"name": "Gleneagles Kuala Lumpur", "lat": 3.1580, "lng": 101.7346},
+        {"name": "Prince Court Medical Centre", "lat": 3.1492, "lng": 101.7212},
+        
+        // Johor Bahru
+        {"name": "Klinik Kesihatan Johor Bahru", "lat": 1.4625, "lng": 103.7578}, 
+        {"name": "Hospital Sultanah Aminah", "lat": 1.4584, "lng": 103.7466},
+        {"name": "Gleneagles Medini Johor", "lat": 1.4333, "lng": 103.6333}, 
+        {"name": "KPJ Johor Specialist", "lat": 1.4844, "lng": 103.7432},
+        {"name": "Klinik Kesihatan Tebrau", "lat": 1.5333, "lng": 103.7667},
+        
+        // Penang
+        {"name": "Hospital Pulau Pinang", "lat": 5.4168, "lng": 100.3115},
+        {"name": "Gleneagles Penang", "lat": 5.4312, "lng": 100.3168},
+        {"name": "Island Hospital", "lat": 5.4219, "lng": 100.3142},
+      ];
+
+      // 4. Calculate Distance & Filter
+      List<Map<String, dynamic>> nearbyClinics = [];
+      
+      for (var clinic in allClinics) {
+        double distMeters = Geolocator.distanceBetween(
+          position.latitude, 
+          position.longitude, 
+          clinic['lat'] as double, 
+          clinic['lng'] as double
+        );
+        double distKm = distMeters / 1000;
+        
+        // Only show clinics within 50km
+        if (distKm <= 50) {
+          nearbyClinics.add({
+            "name": clinic['name'],
+            "distVal": distKm,
+            "dist": "${distKm.toStringAsFixed(1)} km"
+          });
+        }
+      }
+
+      // Sort by distance
+      nearbyClinics.sort((a, b) => (a['distVal'] as double).compareTo(b['distVal'] as double));
+      
+      // Take top 5
+      final topClinics = nearbyClinics.take(5).toList();
+      
+      String responseText = "";
+      if (topClinics.isEmpty) {
+        responseText = "I couldn't find any partner clinics within 50km of your location. 🧐 \n\nTry selecting a region manually.";
+      } else {
+        responseText = "Found ${topClinics.length} clinics near you. The closest is **${topClinics.first['name']}**.\n\nPlease select one to check availability:";
+      }
+
+      // Format for UI (Name|Distance)
+      final clinicStrings = topClinics.map((c) => "${c['name']}|${c['dist']}").toList();
+
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ref.read(chatProvider.notifier).addMessage(ChatMessage(
+          text: responseText,
+          isUser: false,
+          type: topClinics.isEmpty ? 'text' : 'clinic_list',
+          metaData: topClinics.isEmpty ? null : {'clinics': clinicStrings},
+        ));
+        _speak(responseText);
+        _scrollToBottom();
+        if (topClinics.isNotEmpty) {
+           notifier.nextStep(); // -> Step 4
+        }
+      }
+
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        response = "I couldn't access your location: $e. \n\nPlease try 'Select Manually'.";
+        ref.read(chatProvider.notifier).addMessage(ChatMessage(
+          text: response,
+          isUser: false,
+          isError: true,
+        ));
+        _speak(response);
+        _scrollToBottom();
+        // Do not advance step, let them try again
+      }
+    }
+  }
+
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
@@ -392,38 +863,40 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
       backgroundColor: Colors.black, // Dark base
       body: Stack(
         children: [
-          // 1. Futuristic Animated Background
+          // 1. Futuristic Background
           const _FuturisticBackground(),
 
-          // 2. Main Content
+          // 2. Chat Interface
           SafeArea(
             child: Column(
               children: [
                 _buildCustomAppBar(),
-                Expanded(
-                  child: ListView.builder(
+                if (!_isInitializing) ...[
+                  Expanded(child: ListView.builder(
                     controller: _scrollController,
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                     physics: const BouncingScrollPhysics(),
                     itemCount: messages.length + (_isLoading ? 1 : 0),
                     itemBuilder: (context, index) {
                       if (index == messages.length) {
-                        return _buildTypingIndicator();
+                        return _buildTypingIndicator(); // Loading Indicator
                       }
                       final msg = messages[index];
                       // Greeting is usually index 0
                       bool isWelcome = index == 0 && !msg.isUser; 
                       return _buildFuturisticMessage(msg, isWelcome: isWelcome);
                     },
-                  ),
-                ),
-                if (!_isInitializing) ...[
+                  )),
                   _buildFuturisticSuggestions(),
                   _buildFuturisticInput(),
                 ]
               ],
             ),
           ),
+          
+          // 3. Emergency Overlay
+          if (_isEmergency) 
+            Positioned.fill(child: _buildEmergencyOverlay().animate().fadeIn()),
         ],
       ),
     );
@@ -600,34 +1073,28 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
                           totalRepeatCount: 1,
                         )
                       else
-                        MarkdownBody(
+                          MarkdownBody(
                           data: msg.text,
+                          selectable: true,
                           styleSheet: MarkdownStyleSheet(
-                            p: const TextStyle(color: Colors.white, fontSize: 16, height: 1.4),
-                            strong: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                            em: const TextStyle(color: Colors.white70, fontStyle: FontStyle.italic),
+                            p: GoogleFonts.outfit(color: Colors.white, fontSize: 16, height: 1.6), // Increased readability
+                            strong: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold),
+                            em: GoogleFonts.outfit(color: Colors.white70, fontStyle: FontStyle.italic),
                             listBullet: const TextStyle(color: Colors.white, fontSize: 16),
                           ),
                         ),
-                      
-                      // AI Image Attachment
-                      if (msg.imagePath != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 12),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(16),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.white.withOpacity(0.2)),
-                                borderRadius: BorderRadius.circular(16),
-                                ),
-                              child: Image.asset(
-                                msg.imagePath!,
-                                fit: BoxFit.fitWidth, // Show full width/aspect ratio
-                              ),
+                        
+                        // Medical Disclaimer (Only for AI text messages, hide during booking/transactional flows)
+                        if (!isUser && !isWelcome && msg.type == 'text' && msg.actionWidget == null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 12),
+                            child: Text(
+                              "⚠️ AI Advice Only. Consult a doctor for medical decisions.",
+                              style: GoogleFonts.outfit(color: Colors.white38, fontSize: 11, fontStyle: FontStyle.italic),
                             ),
                           ),
-                        ).animate().fadeIn(delay: 500.ms).slideY(begin: 0.1, end: 0),
+                      
+
 
                       if (msg.isError)
                         Padding(
@@ -640,11 +1107,27 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
 
                 // Render Action Button if Available
                 if (msg.actionWidget != null)
-                  msg.actionWidget!
+                  msg.actionWidget!,
+
+                // Render Choice Chips (Type/Location)
+                if (msg.type == 'choice_chips' && msg.metaData != null)
+                   _buildChoiceChips(msg.metaData!['choices'] as List<dynamic>),
+
+                // Render Clinic Picker
+                if (msg.type == 'clinic_list' && msg.metaData != null)
+                  _buildClinicPicker(msg.metaData!['clinics'] as List<dynamic>),
+
+                // Render Time Slot Picker
+                if (msg.type == 'time_slots' && msg.metaData != null)
+                  _buildTimeSlotPicker(msg.metaData!['slots'] as List<dynamic>),
+
+                // Render Appointment Summary
+                if (msg.type == 'summary') 
+                  _buildAppointmentSummary(),
               ],
             ),
           ),
-
+          
           if (isUser) ...[
             const SizedBox(width: 12),
             Container(
@@ -665,6 +1148,30 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
           ]
         ],
       ),
+    );
+  }
+
+  Widget _buildChoiceChips(List<dynamic> choices) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: choices.map((choice) {
+        return GestureDetector(
+          onTap: () => _sendMessage(choice),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.white.withOpacity(0.2)),
+            ),
+            child: Text(
+              choice,
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            ),
+          ).animate().fadeIn().scale(),
+        );
+      }).toList(),
     );
   }
 
@@ -699,15 +1206,14 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
 
   Widget _buildFuturisticSuggestions() {
     final chips = [
-      "Vaccine Status", 
-      "Check-in Scan", 
-      "Risky Spots", 
-      "Symptoms",
-      "Better Sleep",
-      "Stay Hydrated",
-      "Find Doctor",
-      "Yoga Tips",
-      "Virus Guard"
+      "I have a fever 🤒",
+      "Coughing a lot 😷",
+      "Sore throat 😫",
+      "Breathing difficulty 🫁",
+      "Covid-19 risk? 🦠",
+      "Vaccine Status 💉", 
+      "Check-in Scan 📷", 
+      "Risky Spots 📍",
     ];
     return SizedBox(
       height: 50,
@@ -788,9 +1294,312 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
       ),
     );
   }
+
+  Widget _buildClinicPicker(List<dynamic> clinics) {
+    return Container(
+      height: 140,
+      margin: const EdgeInsets.only(top: 10),
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: clinics.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        itemBuilder: (context, index) {
+          final clinicRaw = clinics[index] as String;
+          final parts = clinicRaw.split('|');
+          final clinicName = parts[0];
+          final distance = parts.length > 1 ? parts[1] : "Unknown";
+
+          return GestureDetector(
+            onTap: () => _sendMessage(clinicName),
+            child: Container(
+              width: 200,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white.withOpacity(0.2)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.blueAccent.withOpacity(0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(LucideIcons.mapPin, color: Colors.blueAccent, size: 20),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    clinicName,
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    distance, 
+                    style: const TextStyle(color: Colors.white54, fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+          ).animate().fadeIn().slideX(delay: (100 * index).ms);
+        },
+      ),
+    );
+  }
+
+  Widget _buildTimeSlotPicker(List<dynamic> slots) {
+    return Container(
+      height: 50,
+      margin: const EdgeInsets.only(top: 10),
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: slots.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        itemBuilder: (context, index) {
+          final time = slots[index] as String;
+          return GestureDetector(
+            onTap: () => _sendMessage(time), // Send the time as a message
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.blueAccent.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.blueAccent.withOpacity(0.5)),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                time,
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ).animate().fadeIn().slideX(delay: (100 * index).ms);
+        },
+      ),
+    );
+  }
+
+  Widget _buildAppointmentSummary() {
+    final appointment = ref.read(appointmentProvider).appointments.lastOrNull;
+    if (appointment == null) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF00C6FF).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF00C6FF).withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(LucideIcons.calendarCheck, color: Color(0xFF00C6FF)),
+              const SizedBox(width: 8),
+              Text(
+                "Appointment Confirmed",
+                style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _buildSummaryRow(LucideIcons.user, "Doctor", appointment.doctorName),
+          _buildSummaryRow(LucideIcons.mapPin, "Location", appointment.hospitalName),
+          _buildSummaryRow(LucideIcons.clock, "Time", "Today @ Selected Time"),
+        ],
+      ),
+    ).animate().fadeIn().slideY();
+  }
+
+  Widget _buildSummaryRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.white60, size: 14),
+          const SizedBox(width: 8),
+          Text("$label: ", style: const TextStyle(color: Colors.white60, fontSize: 13)),
+          Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+        ],
+      ),
+    );
+  }
+
+
+  List<String> _mockClinicSearch(String location) {
+    final loc = location.toLowerCase();
+    List<Map<String, String>> matches = [];
+
+    // Expanded Database
+    if (loc.contains("kl") || loc.contains("lumpur") || loc.contains("kuala")) {
+      matches = [
+        {"name": "Klinik Kesihatan Kuala Lumpur", "dist": "3.2 km"},
+        {"name": "Gleneagles Kuala Lumpur", "dist": "4.5 km"},
+        {"name": "Prince Court Medical Centre", "dist": "5.1 km"}
+      ];
+    } else if (loc.contains("jb") || loc.contains("johor") || loc.contains("bahru") || loc.contains("nusa")) {
+       matches = [
+        {"name": "Klinik Kesihatan Johor Bahru", "dist": "2.1 km"},
+        {"name": "Gleneagles Medini Johor", "dist": "8.4 km"}, // Nusa Bestari area
+        {"name": "Klinik Kesihatan Tebrau", "dist": "12.0 km"}
+      ];
+    } else if (loc.contains("penang") || loc.contains("george")) {
+       matches = [
+        {"name": "Hospital Pulau Pinang", "dist": "2.4 km"},
+        {"name": "Gleneagles Penang", "dist": "5.0 km"}
+       ];
+    } else {
+       matches = [
+        {"name": "General Clinic ($location)", "dist": "Near you"},
+        {"name": "Community Health Center", "dist": "5.0 km"}
+       ];
+    }
+    
+    return matches.map((c) => "${c['name']}|${c['dist']}").toList();
+  }
+
+  DateTime _parseTime(String timeStr) {
+    try {
+      final now = DateTime.now();
+      final cleanStr = timeStr.trim().toUpperCase(); // "02:00 PM"
+      final parts = cleanStr.split(" "); 
+      final timeParts = parts[0].split(":");
+      
+      int hour = int.parse(timeParts[0]);
+      int minute = int.parse(timeParts[1]);
+      bool isPM = parts[1] == "PM";
+
+      if (isPM && hour != 12) hour += 12;
+      if (!isPM && hour == 12) hour = 0;
+
+      return DateTime(now.year, now.month, now.day, hour, minute);
+    } catch (e) {
+      debugPrint("Time Parse Error: $e");
+      return DateTime.now();
+    }
+  }
+
+  // Minimal Animated Background Widget
+  Widget _buildEmergencyOverlay() {
+    return Container(
+      color: Colors.black.withOpacity(0.9), // Dark overlay
+      child: Stack(
+        children: [
+          // Red Pulsing Background
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  colors: [Colors.red.withOpacity(0.5), Colors.transparent],
+                  radius: 1.5,
+                ),
+              ),
+            ).animate(onPlay: (c) => c.repeat(reverse: true))
+             .scale(begin: const Offset(1, 1), end: const Offset(1.2, 1.2), duration: 800.ms),
+          ),
+          
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                   const Icon(LucideIcons.siren, color: Colors.white, size: 80)
+                       .animate(onPlay: (c) => c.repeat())
+                       .shake(duration: 500.ms),
+                   const SizedBox(height: 20),
+                   Text(
+                     "EMERGENCY DETECTED",
+                     style: GoogleFonts.outfit(
+                       color: Colors.white, 
+                       fontSize: 32, 
+                       fontWeight: FontWeight.w900,
+                       letterSpacing: 2,
+                     ),
+                     textAlign: TextAlign.center,
+                   ),
+                   const SizedBox(height: 10),
+                   const Text(
+                     "Help is just a tap away.",
+                     style: TextStyle(color: Colors.white70, fontSize: 16),
+                   ),
+                   const SizedBox(height: 40),
+                   
+                   // Call 999 Button
+                   SizedBox(
+                     width: double.infinity,
+                     height: 60,
+                     child: ElevatedButton.icon(
+                       icon: const Icon(LucideIcons.phoneCall, size: 28),
+                       label: const Text("CALL 999 NOW", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                       style: ElevatedButton.styleFrom(
+                         backgroundColor: Colors.redAccent,
+                         foregroundColor: Colors.white,
+                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                         elevation: 10,
+                       ),
+                       onPressed: () async {
+                          final Uri launchUri = Uri(scheme: 'tel', path: '999');
+                          if (await canLaunchUrl(launchUri)) {
+                            await launchUrl(launchUri);
+                          }
+                       },
+                     ),
+                   ),
+                   
+                   const SizedBox(height: 16),
+                   
+                   // Navigation Button
+                   SizedBox(
+                     width: double.infinity,
+                     height: 60,
+                     child: ElevatedButton.icon(
+                       icon: const Icon(LucideIcons.navigation, size: 28),
+                       label: const Text("NAVIGATE TO HOSPITAL", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                       style: ElevatedButton.styleFrom(
+                         backgroundColor: Colors.blueAccent,
+                         foregroundColor: Colors.white,
+                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                       ),
+                       onPressed: () async {
+                          // Simple Google Maps intent for "Hospital"
+                          final Uri url = Uri.parse('https://www.google.com/maps/search/hospital/');
+                          if (await canLaunchUrl(url)) {
+                             await launchUrl(url);
+                          }
+                       },
+                     ),
+                   ),
+                   
+                   const Spacer(),
+                   
+                   // Dismiss Button
+                   TextButton(
+                     onPressed: () {
+                        setState(() => _isEmergency = false);
+                        ref.read(chatProvider.notifier).addMessage(ChatMessage(
+                          text: "Emergency mode deactivated. I'm here if you need to talk.",
+                          isUser: false,
+                        ));
+                     },
+                     child: const Text("I'm Safe / Cancel Alert", style: TextStyle(color: Colors.white54)),
+                   ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-// Minimal Animated Background Widget
 class _FuturisticBackground extends StatelessWidget {
   const _FuturisticBackground();
 
@@ -831,7 +1640,8 @@ class _FuturisticBackground extends StatelessWidget {
            .blur(begin: const Offset(80, 80), end: const Offset(40, 40)),
         ),
         
-        // Overlay Noise/Texture (Optional, simulating with subtle gradient)
+
+        // Overlay Noise/Texture
         Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
