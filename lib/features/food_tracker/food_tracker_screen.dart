@@ -69,7 +69,7 @@ class _FoodTrackerScreenState extends ConsumerState<FoodTrackerScreen> {
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text("VITALITY TRACKER", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.amberAccent)),
+        title: const Text("FOOD INTAKE MONITOR", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.amberAccent)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [_buildConfigMenu(context, ref, state)],
