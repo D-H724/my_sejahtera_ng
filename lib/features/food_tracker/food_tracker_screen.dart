@@ -16,8 +16,18 @@ import 'package:my_sejahtera_ng/features/food_tracker/providers/food_tracker_pro
 
 
 // --- MAIN UI ---
-class FoodTrackerScreen extends ConsumerWidget {
-  FoodTrackerScreen({super.key});
+// --- MAIN UI ---
+class FoodTrackerScreen extends ConsumerStatefulWidget {
+  final bool autoShowHydration;
+  const FoodTrackerScreen({super.key, this.autoShowHydration = false});
+
+  @override
+  ConsumerState<FoodTrackerScreen> createState() => _FoodTrackerScreenState();
+}
+
+class _FoodTrackerScreenState extends ConsumerState<FoodTrackerScreen> {
+  final ScrollController _scrollController = ScrollController();
+  final GlobalKey _hydrationKey = GlobalKey();
 
   final List<String> suggestions = [
     "🥗 Try a Balanced Lunch: Grilled chicken, brown rice, and steamed broccoli.",
@@ -30,7 +40,28 @@ class FoodTrackerScreen extends ConsumerWidget {
   static const List<String> availableAllergens = ['Peanut', 'Milk & Dairy', 'Sesame', 'Wheat & Gluten', 'Shellfish', 'Fish', 'Chicken', 'Lamb', 'Beef', 'Soy', 'Egg', 'Tree Nuts'];
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  void initState() {
+    super.initState();
+    if (widget.autoShowHydration) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        // Scroll to hydration panel
+        if (_hydrationKey.currentContext != null) {
+             Scrollable.ensureVisible(_hydrationKey.currentContext!, duration: 800.ms, curve: Curves.easeInOut);
+        }
+        // Auto-open drink logger
+        Future.delayed(500.ms, () => _logEntry(context, ref, true));
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(foodTrackerProvider);
     final randomSuggestion = suggestions[Random().nextInt(suggestions.length)];
 
@@ -53,6 +84,7 @@ class FoodTrackerScreen extends ConsumerWidget {
         child: Stack(
           children: [
             SingleChildScrollView(
+              controller: _scrollController,
               padding: const EdgeInsets.fromLTRB(20, 120, 20, 40),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -61,6 +93,11 @@ class FoodTrackerScreen extends ConsumerWidget {
                   const SizedBox(height: 20),
                   _buildCalorieChart(state),
                   const SizedBox(height: 25),
+                  
+                  // Hydration Panel
+                  Container(key: _hydrationKey, child: _buildHydrationPanel(state)),
+                  const SizedBox(height: 25),
+
                   _sectionHeader("AI HEALTH INSIGHTS"),
                   const SizedBox(height: 10),
                   _buildDynamicInsights(state),
@@ -76,6 +113,56 @@ class FoodTrackerScreen extends ConsumerWidget {
             if (state.isScanning) _buildScanningOverlay(),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildHydrationPanel(FoodTrackerState state) {
+    return GlassContainer(
+      borderRadius: BorderRadius.circular(25),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+               const Text("Hydration", style: TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold, fontSize: 16)),
+               Icon(LucideIcons.droplets, color: Colors.cyanAccent.withOpacity(0.5), size: 20),
+            ],
+          ),
+          const SizedBox(height: 15),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+               Column(
+                 crossAxisAlignment: CrossAxisAlignment.start,
+                 children: [
+                    Text("${state.waterCount} / 8", style: GoogleFonts.outfit(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold)),
+                    const Text("Glasses Today", style: TextStyle(color: Colors.white54, fontSize: 12)),
+                 ],
+               ),
+               ElevatedButton(
+                 onPressed: () => _logEntry(context, ref, true),
+                 style: ElevatedButton.styleFrom(
+                   backgroundColor: Colors.cyanAccent.withOpacity(0.2),
+                   foregroundColor: Colors.cyanAccent,
+                   shape: const CircleBorder(),
+                   padding: const EdgeInsets.all(12),
+                 ),
+                 child: const Icon(LucideIcons.plus, size: 24),
+               )
+            ],
+          ),
+          const SizedBox(height: 15),
+          LinearProgressIndicator(
+            value: (state.waterCount / 8).clamp(0.0, 1.0),
+            backgroundColor: Colors.white10,
+            color: Colors.cyanAccent,
+            minHeight: 6,
+            borderRadius: BorderRadius.circular(3),
+          ),
+        ],
       ),
     );
   }

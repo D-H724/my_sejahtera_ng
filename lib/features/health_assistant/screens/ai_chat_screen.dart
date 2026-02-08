@@ -332,6 +332,12 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
       // Make step mutable for NLU jumps
       int step = state.bookingStep;
 
+      // GUARD: If user clicks "Select Manually" at any point, force Step 3 logic
+      if (userText.contains("Select Manually") || userText.contains("Manually 🗺️")) {
+          step = 3;
+          ref.read(appointmentProvider.notifier).setStep(3);
+      }
+
        // --- STEP 1: APPOINTMENT TYPE (Initial Trigger Analysis) ---
        if (step == 1) {
          // Declared outside to be accessible
@@ -355,11 +361,13 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
                notifier.updateTempData('manual_mode_active', false);
                // Trigger GPS immediately? No, async gap. 
                // We'll set state to Step 3 and call it manually or let the next loop handle it?
-               // Better flow: Just acknowledge type and ask location.
+                  // Better flow: Just acknowledge type and ask location.
                response = "Got it, a **$detectedType** appointment. \n\nHow would you like to find a clinic?";
                msgType = 'choice_chips';
                meta = {'choices': ['Use Current Location 📍', 'Select Manually 🗺️']};
-               notifier.nextStep(); // -> Step 2 (Wait, we need to advance to Step 2 then 3?)
+               
+               // DIRECT JUMP TO STEP 3 (Location Method Selection)
+               notifier.setStep(3); 
                
                // Refined Logic for "at [Location]"
                final locRegex = RegExp(r'(?:at|in|nearby)\s+([a-zA-Z\s]+)');
@@ -398,15 +406,18 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
             if (locationDetected) {
                 // Determine step adjustment based on above logic
                 // If we showed clinics, we need to be at Step 3.
-                // We are currently at Step 1.
-                notifier.nextStep(); // -> 2
-                notifier.nextStep(); // -> 3
+                notifier.setStep(3); 
+                notifier.nextStep(); // -> 4 (Wait, if we set to 3, nextStep makes it 4?)
+                // Actually, if we set to 3 and found a location, we want to simulate selection?
+                // The original code did nextStep() twice.
+                // Let's just set it to 4 if location found.
+                notifier.setStep(4);
             } else if (!lowerInput.contains("nearby") && !lowerInput.contains("near me")) {
                // Only found Type, ask for Location
                response = "Understood, **$detectedType**. \n\nHow would you like to find a clinic?";
                msgType = 'choice_chips';
                meta = {'choices': ['Use Current Location 📍', 'Select Manually 🗺️']};
-               notifier.nextStep(); // -> Step 2
+               notifier.setStep(3); // Direct to Step 3 (Location Method)
             }
            
          } else {
@@ -426,7 +437,7 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
              response = "Understood, $userText. \n\nHow would you like to find a clinic?";
              msgType = 'choice_chips';
              meta = {'choices': ['Use Current Location 📍', 'Select Manually 🗺️']};
-             notifier.nextStep(); // -> Step 3
+             notifier.setStep(3); // Explicitly set to Step 3
         } else {
              // Fallback
              response = "Please select a valid appointment type from the options above.";

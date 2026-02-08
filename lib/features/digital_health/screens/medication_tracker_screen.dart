@@ -123,17 +123,39 @@ class _MedicationTrackerScreenState extends ConsumerState<MedicationTrackerScree
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: (){
-            showModalBottomSheet(
-              context: context,
-              isScrollControlled: true,
-              backgroundColor: Colors.transparent,
-              builder: (context) => AddMedicationSheet(onSave: (med) => ref.read(medicationProvider.notifier).addMedication(med)),
-            );
-        },
-        backgroundColor: Colors.white,
-        child: const Icon(LucideIcons.plus, color: Colors.teal),
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FloatingActionButton(
+            heroTag: 'test_btn',
+            mini: true,
+            backgroundColor: Colors.orangeAccent,
+            child: const Icon(LucideIcons.bellRing, size: 18),
+            onPressed: () async {
+               debugPrint("Testing Notification...");
+               await NotificationService().showNotification(
+                 id: 999,
+                 title: "Test Reminder 🔔",
+                 body: "This is a test notification from MySejahteraNG.",
+               );
+               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Test Notification Sent! Check status bar.")));
+            },
+          ),
+          const SizedBox(height: 10),
+          FloatingActionButton(
+            heroTag: 'add_btn',
+            onPressed: (){
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (context) => AddMedicationSheet(onSave: (med) => ref.read(medicationProvider.notifier).addMedication(med)),
+                );
+            },
+            backgroundColor: Colors.white,
+            child: const Icon(LucideIcons.plus, color: Colors.teal),
+          ),
+        ],
       ),
     );
   }

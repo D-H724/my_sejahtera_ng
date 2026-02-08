@@ -39,7 +39,12 @@ class FoodTrackerState {
       foods.fold(0, (a, b) => a + b.calories) +
           drinks.fold(0, (a, b) => a + b.calories);
 
-  int get waterCount => drinks.where((d) => d.type == DrinkType.water).length;
+  int get waterCount => drinks.where((d) => 
+      d.type == DrinkType.water || 
+      d.type == DrinkType.tea || 
+      d.type == DrinkType.juice || 
+      d.type == DrinkType.milk
+  ).length;
 
   // AI Insight Logic (Shared)
   String get currentInsight {

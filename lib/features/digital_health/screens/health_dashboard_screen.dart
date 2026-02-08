@@ -24,19 +24,34 @@ class HealthDashboardScreen extends ConsumerWidget {
     final foodState = ref.watch(foodTrackerProvider);
     final user = ref.watch(userProvider);
     
-    // Calculate simple health score
-    // Logic: Starts at 50. 
-    // +15 if BMI Normal. 
-    // +15 if hydrated (>3 water).
-    // +20 if all meds taken.
-    int healthScore = 50;
-    if (vitals.bmiStatus == 'Normal') healthScore += 15;
-    if (foodState.waterCount >= 3) healthScore += 15;
+    // Calculate Smart Health Score
+    int healthScore = 0;
     
+    // 1. Base Score (Vitals)
+    if (vitals.bmiStatus == 'Normal') healthScore += 40;
+    else if (vitals.bmiStatus == 'Overweight') healthScore += 30;
+    else healthScore += 20;
+
+    // 2. Nutrition Activity (Must log to earn points)
+    if (foodState.totalCalories > 0) {
+       if (foodState.totalCalories <= foodState.calorieTarget) healthScore += 20;
+       else healthScore += 10; // Overeating is better than starving/not logging?
+    }
+
+    // 3. Hydration
+    if (foodState.waterCount >= 8) healthScore += 20;
+    else if (foodState.waterCount >= 4) healthScore += 10;
+
+    // 4. Medication Compliance
     final totalMeds = medicationState.medications.length;
     final takenMeds = medicationState.medications.where((m) => m.isTaken).length;
-    if (totalMeds > 0 && takenMeds == totalMeds) healthScore += 20;
-    if (totalMeds == 0) healthScore += 10; // Bonus for no meds? Or just neutral.
+    
+    if (totalMeds == 0) {
+       healthScore += 20; // Healthy bonus
+    } else {
+       double medCompliance = takenMeds / totalMeds;
+       healthScore += (20 * medCompliance).toInt();
+    }
 
     return Scaffold(
       extendBodyBehindAppBar: true,
@@ -93,7 +108,7 @@ class HealthDashboardScreen extends ConsumerWidget {
                        "kcal consumed",
                        LucideIcons.utensils, 
                        Colors.orangeAccent,
-                       FoodTrackerScreen(),
+                       const FoodTrackerScreen(),
                        progress: foodState.totalCalories / foodState.calorieTarget,
                      ),
                      _buildTrackerCard(
@@ -123,7 +138,7 @@ class HealthDashboardScreen extends ConsumerWidget {
                        "glasses",
                        LucideIcons.droplets, 
                        Colors.cyanAccent,
-                       FoodTrackerScreen(), // Links to same food tracker but maybe specific tab?
+                       const FoodTrackerScreen(autoShowHydration: true), // Links to specific hydration panel
                        progress: (foodState.waterCount / 8).clamp(0.0, 1.0),
                      ),
                   ],

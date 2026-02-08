@@ -46,26 +46,43 @@ class NotificationService {
     required String body,
     required DateTime time,
   }) async {
+    final tzt.TZDateTime scheduledDate = _nextInstanceOfTime(time);
+
+    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+        AndroidNotificationDetails(
+      'medication_channel',
+      'Medication Reminders',
+      channelDescription: 'Reminders to take your medication',
+      importance: Importance.max,
+      priority: Priority.high,
+    );
+    
+    // Ensure iOS notifications show up in foreground
+    const DarwinNotificationDetails iosPlatformChannelSpecifics = 
+        DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+    );
+    
+    const NotificationDetails platformChannelSpecifics = NotificationDetails(
+      android: androidPlatformChannelSpecifics,
+      iOS: iosPlatformChannelSpecifics,
+    );
+
     await flutterLocalNotificationsPlugin.zonedSchedule(
       id,
       title,
       body,
-      _nextInstanceOfTime(time),
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          'medication_channel',
-          'Medication Reminders',
-          channelDescription: 'Reminders to take your medication',
-          importance: Importance.max,
-          priority: Priority.high,
-        ),
-        iOS: DarwinNotificationDetails(),
-      ),
+      scheduledDate,
+      platformChannelSpecifics,
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
       matchDateTimeComponents: DateTimeComponents.time,
     );
+    
+    debugPrint("✅ Scheduled Notification [$id] '$title' at $scheduledDate (Local)");
   }
 
   tzt.TZDateTime _nextInstanceOfTime(DateTime time) {
