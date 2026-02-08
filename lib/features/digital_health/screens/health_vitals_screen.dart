@@ -68,15 +68,9 @@ class HealthVitalsScreen extends ConsumerWidget {
                 const SizedBox(height: 10),
                 
                 // Always show BMI Status
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: _getBmiColor(vitals.bmiStatus).withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: _getBmiColor(vitals.bmiStatus)),
-                  ),
-                  child: Text("BMI Status: ${vitals.bmiStatus}", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                ).animate().fadeIn(delay: 600.ms),
+                // 3D Avatar & BMI Status Visualizer
+                _buildBmiAvatar(vitals.bmiStatus),
+                const SizedBox(height: 10),
 
                 const SizedBox(height: 16),
 
@@ -326,6 +320,83 @@ class HealthVitalsScreen extends ConsumerWidget {
           ],
         ),
       ).animate().fadeIn().slideX(),
+    );
+  }
+
+  Widget _buildBmiAvatar(String status) {
+    String assetPath;
+    if (status == 'Underweight') {
+      assetPath = 'assets/images/bmi_underweight.png';
+    } else if (status == 'Obese' || status == 'Overweight') {
+      assetPath = 'assets/images/bmi_overweight.png';
+    } else {
+      assetPath = 'assets/images/bmi_normal.png'; // Default/Normal
+    }
+
+    return Column(
+      children: [
+        SizedBox(
+          height: 280, // Generous height for the 3D character
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 600),
+            transitionBuilder: (child, animation) => ScaleTransition(scale: animation, child: FadeTransition(opacity: animation, child: child)),
+            child: Container(
+              key: ValueKey(status),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(30),
+                border: Border.all(color: Colors.white24, width: 2),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  )
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(28),
+                child: Image.asset(
+                  assetPath,
+                  fit: BoxFit.cover,
+                  height: 280,
+                  width: 250, // Constrain width for a card look
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          decoration: BoxDecoration(
+            color: _getBmiColor(status).withOpacity(0.2),
+            borderRadius: BorderRadius.circular(30),
+            border: Border.all(color: _getBmiColor(status), width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: _getBmiColor(status).withOpacity(0.4),
+                blurRadius: 15,
+                spreadRadius: 2,
+              )
+            ]
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                status == 'Normal' ? LucideIcons.thumbsUp : (status == 'Underweight' ? LucideIcons.arrowDown : LucideIcons.arrowUp),
+                color: _getBmiColor(status),
+                size: 20
+              ),
+              const SizedBox(width: 8),
+              Text(
+                "Status: $status",
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18, letterSpacing: 1),
+              ),
+            ],
+          ),
+        ).animate().fadeIn().slideY(begin: 0.3),
+      ],
     );
   }
 }
