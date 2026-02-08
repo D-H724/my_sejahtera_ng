@@ -228,48 +228,69 @@ class _AddMedicationSheetState extends State<AddMedicationSheet> {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () {
-                    if (_formKey.currentState!.validate()) {
-                      // Calculate Time
-                      DateTime finalTime = _selectedTime;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Debug: Save Button Tapped! 👆"), duration: Duration(milliseconds: 500)),
+                    );
+                    
+                    try {
+                      // AUTO-FILL for Timer Mode if empty
                       if (_isTimerMode) {
-                        finalTime = DateTime.now().add(Duration(minutes: _selectedDurationMinutes));
+                        if (_nameController.text.isEmpty) _nameController.text = "Quick Timer";
+                        if (_dosageController.text.isEmpty) _dosageController.text = "General";
+                        if (_pillsController.text.isEmpty) _pillsController.text = "1";
                       }
-                      
-                      final medication = Medication(
-                        name: _nameController.text,
-                        dosage: _dosageController.text,
-                        pillsToTake: int.tryParse(_pillsController.text) ?? 1,
-                        time: finalTime,
-                        instructions: "${_instructionsController.text}${_isTimerMode ? ' (Timer set at ${DateFormat.jm().format(DateTime.now())})' : ''}",
-                        isOneTime: _isTimerMode,
-                      );
-                      
-                      widget.onSave(medication);
-                      
-                      // Show Feedback
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          backgroundColor: _isTimerMode ? Colors.orangeAccent : Colors.blueAccent,
-                          content: Row(
-                            children: [
-                              Icon(_isTimerMode ? LucideIcons.timer : LucideIcons.bell, color: Colors.white),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  _isTimerMode 
-                                    ? "Timer set for ${_selectedDurationMinutes}m! We'll remind you." 
-                                    : "Reminder set for ${DateFormat.jm().format(finalTime)} daily.",
-                                  style: GoogleFonts.outfit(fontWeight: FontWeight.bold)
+
+                      if (_formKey.currentState!.validate()) {
+                        // Calculate Time
+                        DateTime finalTime = _selectedTime;
+                        if (_isTimerMode) {
+                          finalTime = DateTime.now().add(Duration(minutes: _selectedDurationMinutes));
+                        }
+                        
+                        final medication = Medication(
+                          name: _nameController.text,
+                          dosage: _dosageController.text,
+                          pillsToTake: int.tryParse(_pillsController.text) ?? 1,
+                          time: finalTime,
+                          instructions: "${_instructionsController.text}${_isTimerMode ? ' (Timer set at ${DateFormat.jm().format(DateTime.now())})' : ''}",
+                          isOneTime: _isTimerMode,
+                        );
+                        
+                        widget.onSave(medication);
+                        
+                        // Show Feedback
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            backgroundColor: _isTimerMode ? Colors.orangeAccent : Colors.blueAccent,
+                            content: Row(
+                              children: [
+                                Icon(_isTimerMode ? LucideIcons.timer : LucideIcons.bell, color: Colors.white),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    _isTimerMode 
+                                      ? "Timer set for ${_selectedDurationMinutes}m! We'll remind you." 
+                                      : "Reminder set for ${DateFormat.jm().format(finalTime)} daily.",
+                                    style: GoogleFonts.outfit(fontWeight: FontWeight.bold)
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
-                          behavior: SnackBarBehavior.floating,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        )
+                              ],
+                            ),
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          )
+                        );
+                        
+                        Navigator.pop(context);
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("Debug: Validation Failed ❌ check fields"), backgroundColor: Colors.red),
+                        );
+                      }
+                    } catch (e) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text("Debug: Error in Save: $e"), backgroundColor: Colors.red),
                       );
-                      
-                      Navigator.pop(context);
                     }
                   },
                   style: ElevatedButton.styleFrom(

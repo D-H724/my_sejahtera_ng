@@ -2,8 +2,13 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tzd;
 import 'package:timezone/timezone.dart' as tzt;
+import 'package:intl/intl.dart';
 
 class NotificationService {
+  static final NotificationService _instance = NotificationService._internal();
+  factory NotificationService() => _instance;
+  NotificationService._internal();
+
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
 
@@ -35,7 +40,7 @@ class NotificationService {
 
     // Create the channel on the device (Android 8.0+)
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
-      'medication_channel_v4', // id forced update
+      'medication_channel_v5', // id forced update
       'Medication Reminders', // title
       description: 'Critical reminders to take your medication', // description
       importance: Importance.max,
@@ -76,7 +81,7 @@ class NotificationService {
 
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
-      'medication_channel_v4',
+      'medication_channel_v5',
       'Medication Reminders',
       channelDescription: 'Reminders to take your medication',
       importance: Importance.max,
@@ -117,16 +122,35 @@ class NotificationService {
     required String body,
     required DateTime time,
   }) async {
+    // Safety Check: Ensure Timezone is initialized
+    try {
+      tzt.TZDateTime.now(tzt.local);
+    } catch (e) {
+      debugPrint("⚠️ Timezone not initialized. Re-initializing...");
+       tzd.initializeTimeZones();
+       try {
+         tzt.setLocalLocation(tzt.getLocation('Asia/Kuala_Lumpur'));
+       } catch (_) {
+         tzt.setLocalLocation(tzt.getLocation('UTC'));
+       }
+    }
+
     // Robust Timezone Handling for Relative Timers:
     // Calculate the duration from "device now" to "target time"
     final Duration offset = time.difference(DateTime.now());
     
     // Apply that duration to the "notification timezone now"
     final tzt.TZDateTime scheduledDate = tzt.TZDateTime.now(tzt.local).add(offset);
+    // DEBUG: Immediate confirmation that logic reached here
+    await showNotification(
+      id: id + 99999, // Offset ID to avoid conflict
+      title: "Timer Started ⏱️", 
+      body: "Will ring at ${DateFormat.jm().format(scheduledDate)}",
+    );
 
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
-      'medication_channel_v4',
+      'medication_channel_v5', // Use v5
       'Medication Reminders',
       channelDescription: 'Reminders to take your medication',
       importance: Importance.max,
@@ -161,19 +185,29 @@ class NotificationService {
     }
 
     // Force AlarmClock mode for critical medication reminders (guaranteed to ring)
-    await flutterLocalNotificationsPlugin.zonedSchedule(
-      id,
-      title,
-      body,
-      scheduledDate,
-      platformChannelSpecifics,
-      androidScheduleMode: AndroidScheduleMode.alarmClock, // Ensure it wakes up device
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-      matchDateTimeComponents: null, 
-    );
-    
-    debugPrint("✅ Scheduled Critical Alarm [$id] '$title' at $scheduledDate (Now: ${tzt.TZDateTime.now(tzt.local)})");
+    // Force AlarmClock mode for critical medication reminders (guaranteed to ring)
+    try {
+      await flutterLocalNotificationsPlugin.zonedSchedule(
+        id,
+        title,
+        body,
+        scheduledDate,
+        platformChannelSpecifics,
+        androidScheduleMode: AndroidScheduleMode.alarmClock, // Ensure it wakes up device
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: null, 
+      );
+      debugPrint("✅ Scheduled Critical Alarm [$id] '$title' at $scheduledDate (Now: ${tzt.TZDateTime.now(tzt.local)})");
+    } catch (e) {
+      debugPrint("❌ Error scheduling alarm: $e");
+      // Fallback: Show immediate notification if scheduling fails
+      await showNotification(
+        id: id, 
+        title: "Timer Error (Fallback)", 
+        body: "Could not schedule exact alarm. Verify permissions in settings."
+      );
+    }
   }
 
   tzt.TZDateTime _nextInstanceOfTime(DateTime time) {
@@ -197,7 +231,7 @@ class NotificationService {
     String? payload,
   }) async {
     const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-      'medication_channel',
+      'medication_channel_v5',
       'Medication Reminders',
       channelDescription: 'test channel',
       importance: Importance.max,
