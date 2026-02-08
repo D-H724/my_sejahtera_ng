@@ -298,20 +298,47 @@ class FoodTrackerScreen extends ConsumerWidget {
   Widget _buildCalorieChart(FoodTrackerState state) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
+    
+    // Calculate dynamic MaxY
+    double maxCalories = state.calorieTarget.toDouble();
+    for (var cal in state.dailyHistory.values) {
+      if (cal > maxCalories) maxCalories = cal.toDouble();
+    }
+    final maxY = maxCalories * 1.2; // Add 20% buffer
+
+    final isOverLimit = state.totalCalories > state.calorieTarget;
+
     return GlassContainer(
       borderRadius: BorderRadius.circular(25),
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text("7-Day Trend", style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold)),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text("7-Day Trend", style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold)),
+              if (isOverLimit)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(color: Colors.red.withOpacity(0.2), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.redAccent)),
+                  child: Row(
+                    children: [
+                      const Icon(LucideIcons.alertTriangle, color: Colors.redAccent, size: 12),
+                      const SizedBox(width: 4),
+                      Text("High Intake", style: TextStyle(color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ).animate().pulse(duration: 2.seconds),
+            ],
+          ),
           const SizedBox(height: 20),
           SizedBox(
             height: 150,
             child: BarChart(
               BarChartData(
                 gridData: const FlGridData(show: false),
-                maxY: (state.calorieTarget * 1.2).toDouble(),
+                maxY: maxY,
                 titlesData: FlTitlesData(
                   leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                   rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -338,7 +365,7 @@ class FoodTrackerScreen extends ConsumerWidget {
                         color: calories > state.calorieTarget ? Colors.redAccent : Colors.cyanAccent,
                         width: 14,
                         borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
-                        backDrawRodData: BackgroundBarChartRodData(show: true, toY: state.calorieTarget.toDouble(), color: Colors.white.withOpacity(0.05)),
+                        backDrawRodData: BackgroundBarChartRodData(show: true, toY: maxY, color: Colors.white.withOpacity(0.0)), // Use transparent background relative to max
                       )
                     ],
                   );
