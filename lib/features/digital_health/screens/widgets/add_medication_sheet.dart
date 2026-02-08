@@ -21,7 +21,6 @@ class _AddMedicationSheetState extends State<AddMedicationSheet> {
   final _dosageController = TextEditingController();
   final _pillsController = TextEditingController();
   final _instructionsController = TextEditingController();
-  final _instructionsController = TextEditingController();
   
   // New: Timer Mode State
   bool _isTimerMode = false;
@@ -230,10 +229,6 @@ class _AddMedicationSheetState extends State<AddMedicationSheet> {
                 child: ElevatedButton(
                   onPressed: () {
                     if (_formKey.currentState!.validate()) {
-                      final medication = Medication(
-                        name: _nameController.text,
-                        dosage: _dosageController.text,
-                        pillsToTake: int.tryParse(_pillsController.text) ?? 1,
                       // Calculate Time
                       DateTime finalTime = _selectedTime;
                       if (_isTimerMode) {
