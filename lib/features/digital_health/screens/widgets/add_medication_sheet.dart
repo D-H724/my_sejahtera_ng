@@ -21,7 +21,12 @@ class _AddMedicationSheetState extends State<AddMedicationSheet> {
   final _dosageController = TextEditingController();
   final _pillsController = TextEditingController();
   final _instructionsController = TextEditingController();
+  final _instructionsController = TextEditingController();
+  
+  // New: Timer Mode State
+  bool _isTimerMode = false;
   DateTime _selectedTime = DateTime.now();
+  int _selectedDurationMinutes = 5; // Default 5 mins
 
   @override
   void dispose() {
@@ -153,36 +158,60 @@ class _AddMedicationSheetState extends State<AddMedicationSheet> {
               
               const SizedBox(height: 16),
               
-              // Time Picker Card
-              GestureDetector(
-                onTap: () => _selectTime(context),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.05),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.white10),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(LucideIcons.clock, color: Colors.blueAccent),
-                      const SizedBox(width: 16),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text("Time to Take", style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12)),
-                          Text(
-                            DateFormat.jm().format(_selectedTime),
-                            style: GoogleFonts.outfit(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                          ),
-                        ],
-                      ),
-                      const Spacer(),
-                      const Icon(LucideIcons.chevronDown, color: Colors.white24),
-                    ],
-                  ),
+              // Toggle: Specific Time vs Timer
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.white10),
                 ),
-              ).animate().fadeIn().slideX(delay: 400.ms),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() => _isTimerMode = false),
+                        child: AnimatedContainer(
+                          duration: 300.ms,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          decoration: BoxDecoration(
+                            color: !_isTimerMode ? Colors.blueAccent.withOpacity(0.2) : Colors.transparent,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: !_isTimerMode ? Colors.blueAccent : Colors.transparent),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text("Specific Time", style: TextStyle(color: !_isTimerMode ? Colors.blueAccent : Colors.white54, fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() => _isTimerMode = true),
+                        child: AnimatedContainer(
+                          duration: 300.ms,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          decoration: BoxDecoration(
+                            color: _isTimerMode ? Colors.orangeAccent.withOpacity(0.2) : Colors.transparent,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: _isTimerMode ? Colors.orangeAccent : Colors.transparent),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text("Timer (Countdown)", style: TextStyle(color: _isTimerMode ? Colors.orangeAccent : Colors.white54, fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ).animate().fadeIn().slideX(delay: 350.ms),
+
+              const SizedBox(height: 16),
+
+              // Time Selection Area
+              AnimatedSwitcher(
+                duration: 300.ms,
+                child: _isTimerMode 
+                  ? _buildTimerSelector() 
+                  : _buildTimePicker(),
+              ),
               
               const SizedBox(height: 16),
               
@@ -205,11 +234,46 @@ class _AddMedicationSheetState extends State<AddMedicationSheet> {
                         name: _nameController.text,
                         dosage: _dosageController.text,
                         pillsToTake: int.tryParse(_pillsController.text) ?? 1,
-                        time: _selectedTime,
-                        instructions: _instructionsController.text,
+                      // Calculate Time
+                      DateTime finalTime = _selectedTime;
+                      if (_isTimerMode) {
+                        finalTime = DateTime.now().add(Duration(minutes: _selectedDurationMinutes));
+                      }
+                      
+                      final medication = Medication(
+                        name: _nameController.text,
+                        dosage: _dosageController.text,
+                        pillsToTake: int.tryParse(_pillsController.text) ?? 1,
+                        time: finalTime,
+                        instructions: "${_instructionsController.text}${_isTimerMode ? ' (Timer set at ${DateFormat.jm().format(DateTime.now())})' : ''}",
+                        isOneTime: _isTimerMode,
                       );
                       
                       widget.onSave(medication);
+                      
+                      // Show Feedback
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          backgroundColor: _isTimerMode ? Colors.orangeAccent : Colors.blueAccent,
+                          content: Row(
+                            children: [
+                              Icon(_isTimerMode ? LucideIcons.timer : LucideIcons.bell, color: Colors.white),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  _isTimerMode 
+                                    ? "Timer set for ${_selectedDurationMinutes}m! We'll remind you." 
+                                    : "Reminder set for ${DateFormat.jm().format(finalTime)} daily.",
+                                  style: GoogleFonts.outfit(fontWeight: FontWeight.bold)
+                                ),
+                              ),
+                            ],
+                          ),
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        )
+                      );
+                      
                       Navigator.pop(context);
                     }
                   },
@@ -276,6 +340,76 @@ class _AddMedicationSheetState extends State<AddMedicationSheet> {
           borderSide: const BorderSide(color: Colors.redAccent),
         ),
       ),
+    );
+  }
+  Widget _buildTimePicker() {
+    return GestureDetector(
+      onTap: () => _selectTime(context),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white10),
+        ),
+        child: Row(
+          children: [
+            const Icon(LucideIcons.clock, color: Colors.blueAccent),
+            const SizedBox(width: 16),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Daily Reminder at", style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12)),
+                Text(
+                  DateFormat.jm().format(_selectedTime),
+                  style: GoogleFonts.outfit(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const Spacer(),
+            const Icon(LucideIcons.chevronDown, color: Colors.white24),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTimerSelector() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Text("Remind me in:", style: TextStyle(color: Colors.orangeAccent, fontSize: 12, fontWeight: FontWeight.bold)),
+        ),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [5, 15, 30, 60, 120].map((mins) {
+             final isSelected = _selectedDurationMinutes == mins;
+             return GestureDetector(
+               onTap: () => setState(() => _selectedDurationMinutes = mins),
+               child: AnimatedContainer(
+                 duration: 200.ms,
+                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                 decoration: BoxDecoration(
+                   color: isSelected ? Colors.orangeAccent : Colors.white.withOpacity(0.05),
+                   borderRadius: BorderRadius.circular(12),
+                   border: Border.all(color: isSelected ? Colors.orangeAccent : Colors.white10),
+                   boxShadow: isSelected ? [BoxShadow(color: Colors.orangeAccent.withOpacity(0.4), blurRadius: 8)] : []
+                 ),
+                 child: Text(
+                   mins >= 60 ? "${mins ~/ 60} hr" : "$mins min",
+                   style: GoogleFonts.outfit(
+                     color: isSelected ? Colors.black : Colors.white,
+                     fontWeight: FontWeight.bold,
+                   ),
+                 ),
+               ),
+             );
+          }).toList(),
+        ),
+      ],
     );
   }
 }

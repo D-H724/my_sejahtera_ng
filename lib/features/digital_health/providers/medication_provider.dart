@@ -23,12 +23,23 @@ class MedicationNotifier extends StateNotifier<MedicationState> {
     
     state = state.copyWith(medications: [...state.medications, newMedication]);
 
-    await _notificationService.scheduleDailyNotification(
-      id: id,
-      title: 'Time to take ${newMedication.name}',
-      body: 'Take ${newMedication.pillsToTake} pills. ${newMedication.instructions}',
-      time: newMedication.time,
-    );
+    state = state.copyWith(medications: [...state.medications, newMedication]);
+
+    if (newMedication.isOneTime) {
+      await _notificationService.scheduleOneTimeNotification(
+        id: id,
+        title: 'Medication Timer: ${newMedication.name} ⏳',
+        body: 'Time to take ${newMedication.pillsToTake} pills now! ${newMedication.instructions}',
+        time: newMedication.time,
+      );
+    } else {
+      await _notificationService.scheduleDailyNotification(
+        id: id,
+        title: 'Time to take ${newMedication.name} 💊',
+        body: 'Take ${newMedication.pillsToTake} pills. ${newMedication.instructions}',
+        time: newMedication.time,
+      );
+    }
   }
 
   void toggleMedication(int id) {

@@ -16,7 +16,10 @@ class Medication {
     required this.time,
     required this.instructions,
     this.isTaken = false,
+    this.isOneTime = false,
   });
+
+  final bool isOneTime;
 
   Map<String, dynamic> toMap() {
     return {
@@ -27,6 +30,7 @@ class Medication {
       'time': time.toIso8601String(),
       'instructions': instructions,
       'isTaken': isTaken ? 1 : 0,
+      'isOneTime': isOneTime ? 1 : 0,
     };
   }
 
@@ -39,6 +43,7 @@ class Medication {
       time: DateTime.parse(map['time']),
       instructions: map['instructions'],
       isTaken: map['isTaken'] == 1,
+      isOneTime: map['isOneTime'] == 1,
     );
   }
 
@@ -50,6 +55,7 @@ class Medication {
     DateTime? time,
     String? instructions,
     bool? isTaken,
+    bool? isOneTime,
   }) {
     return Medication(
       id: id ?? this.id,
@@ -59,6 +65,7 @@ class Medication {
       time: time ?? this.time,
       instructions: instructions ?? this.instructions,
       isTaken: isTaken ?? this.isTaken,
+      isOneTime: isOneTime ?? this.isOneTime,
     );
   }
 }

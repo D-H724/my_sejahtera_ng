@@ -49,7 +49,8 @@ class _DigitalCertCardState extends ConsumerState<DigitalCertCard> with SingleTi
       transform: matrix,
       alignment: Alignment.center,
       child: Container(
-        height: 500, // Large certificate format
+        // Flexible height instead of fixed 500
+        constraints: const BoxConstraints(maxHeight: 520),
         width: double.infinity,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(30),
@@ -109,73 +110,82 @@ class _DigitalCertCardState extends ConsumerState<DigitalCertCard> with SingleTi
                 },
               ),
 
-              // 3. Content
-              Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  children: [
-                    // Header
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(LucideIcons.shieldCheck, color: Colors.black, size: 28),
-                        const SizedBox(width: 10),
-                        Text("DIGITAL CERTIFICATE", style: GoogleFonts.shareTechMono(color: Colors.black, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 2)),
-                      ],
-                    ),
-                    const SizedBox(height: 15),
-
-                    // User Info
-                    Text(user?.fullName.toUpperCase() ?? "USER NAME", style: GoogleFonts.outfit(color: Colors.black87, fontSize: 22, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
-                    const SizedBox(height: 5),
-                    Text("IC/Passport: ${user?.icNumber ?? 'N/A'}", style: GoogleFonts.outfit(color: Colors.black54, fontSize: 14)),
-                    
-                    const SizedBox(height: 15),
-
-                    // QR Code
-                    Center(
-                      child: Container(
-                        padding: const EdgeInsets.all(15),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                             BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 20)
-                          ]
-                        ),
-                        child: QrImageView(
-                          data: "https://mysejahtera.malaysia.gov.my?id=${user?.username}",
-                          version: QrVersions.auto,
-                          size: 150.0,
-                          eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.square, color: Colors.black),
-                          dataModuleStyle: const QrDataModuleStyle(dataModuleShape: QrDataModuleShape.square, color: Colors.black),
-                        ),
-                      ),
-                    ),
-
-                    const Spacer(),
-
-                    // Verification Badge
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.8),
-                        borderRadius: BorderRadius.circular(30),
-                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 5))]
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
+              // 3. Content - SCALED TO FIT
+              Positioned.fill(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: SizedBox(
+                      width: 320, // Define a "ideal" width for scaling reference
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min, // Shrink wrap
                         children: [
-                          const Icon(LucideIcons.checkCircle, color: Colors.amber, size: 20).animate(onPlay: (c) => c.repeat()).shimmer(duration: 2.seconds, color: Colors.white),
-                          const SizedBox(width: 10),
-                          Text(
-                            "FULLY VACCINATED", 
-                            style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1),
+                          // Header
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(LucideIcons.shieldCheck, color: Colors.black, size: 28),
+                              const SizedBox(width: 10),
+                              Text("DIGITAL CERTIFICATE", style: GoogleFonts.shareTechMono(color: Colors.black, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 2)),
+                            ],
+                          ),
+                          const SizedBox(height: 15),
+
+                          // User Info
+                          Text(user?.fullName.toUpperCase() ?? "USER NAME", style: GoogleFonts.outfit(color: Colors.black87, fontSize: 22, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                          const SizedBox(height: 5),
+                          Text("IC/Passport: ${user?.icNumber ?? 'N/A'}", style: GoogleFonts.outfit(color: Colors.black54, fontSize: 14)),
+                          
+                          const SizedBox(height: 15),
+
+                          // QR Code
+                          Center(
+                            child: Container(
+                              padding: const EdgeInsets.all(15),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(20),
+                                boxShadow: [
+                                   BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 20)
+                                ]
+                              ),
+                              child: QrImageView(
+                                data: "https://mysejahtera.malaysia.gov.my?id=${user?.username}",
+                                version: QrVersions.auto,
+                                size: 150.0,
+                                eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.square, color: Colors.black),
+                                dataModuleStyle: const QrDataModuleStyle(dataModuleShape: QrDataModuleShape.square, color: Colors.black),
+                              ),
+                            ),
+                          ),
+
+                          const SizedBox(height: 20), // Reduced from Spacer/flexible
+
+                          // Verification Badge
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.8),
+                              borderRadius: BorderRadius.circular(30),
+                              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 5))]
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(LucideIcons.checkCircle, color: Colors.amber, size: 20).animate(onPlay: (c) => c.repeat()).shimmer(duration: 2.seconds, color: Colors.white),
+                                const SizedBox(width: 10),
+                                Text(
+                                  "FULLY VACCINATED", 
+                                  style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1),
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
                     ),
-                  ],
+                  ),
                 ),
               ),
               

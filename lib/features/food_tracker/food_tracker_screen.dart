@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -416,7 +417,7 @@ class _FoodTrackerScreenState extends ConsumerState<FoodTrackerScreen> {
                       Text("High Intake", style: TextStyle(color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.bold)),
                     ],
                   ),
-                ).animate().pulse(duration: 2.seconds),
+                ).animate(onPlay: (c) => c.repeat(reverse: true)).scale(duration: 1.seconds, begin: const Offset(1, 1), end: const Offset(1.1, 1.1)),
             ],
           ),
           const SizedBox(height: 20),

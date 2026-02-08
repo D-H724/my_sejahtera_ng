@@ -85,6 +85,65 @@ class NotificationService {
     debugPrint("✅ Scheduled Notification [$id] '$title' at $scheduledDate (Local)");
   }
 
+  Future<void> scheduleOneTimeNotification({
+    required int id,
+    required String title,
+    required String body,
+    required DateTime time,
+  }) async {
+    final tzt.TZDateTime scheduledDate = tzt.TZDateTime.from(time, tzt.local);
+
+    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+        AndroidNotificationDetails(
+      'medication_channel',
+      'Medication Reminders',
+      channelDescription: 'Reminders to take your medication',
+      importance: Importance.max,
+      priority: Priority.high,
+    );
+    
+    const DarwinNotificationDetails iosPlatformChannelSpecifics = 
+        DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+    );
+    
+    const NotificationDetails platformChannelSpecifics = NotificationDetails(
+      android: androidPlatformChannelSpecifics,
+      iOS: iosPlatformChannelSpecifics,
+    );
+
+    // If time is in the past (e.g. user selected 1 min ago), schedule for now + 5 seconds
+    if (scheduledDate.isBefore(tzt.TZDateTime.now(tzt.local))) {
+        debugPrint("⚠️ Scheduled time is in the past. Scheduling for 5 seconds from now.");
+        await flutterLocalNotificationsPlugin.zonedSchedule(
+          id,
+          title,
+          body,
+          tzt.TZDateTime.now(tzt.local).add(const Duration(seconds: 5)),
+          platformChannelSpecifics,
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+          uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+        );
+        return;
+    }
+
+    await flutterLocalNotificationsPlugin.zonedSchedule(
+      id,
+      title,
+      body,
+      scheduledDate,
+      platformChannelSpecifics,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+      matchDateTimeComponents: DateTimeComponents.dateAndTime, // One time
+    );
+    
+    debugPrint("✅ Scheduled One-Time Notification [$id] '$title' at $scheduledDate");
+  }
+
   tzt.TZDateTime _nextInstanceOfTime(DateTime time) {
     final tzt.TZDateTime now = tzt.TZDateTime.now(tzt.local);
     tzt.TZDateTime scheduledDate = tzt.TZDateTime(
@@ -97,5 +156,24 @@ class NotificationService {
     
   Future<void> cancelNotification(int id) async {
     await flutterLocalNotificationsPlugin.cancel(id);
+  }
+
+  Future<void> showNotification({
+    required int id,
+    required String title,
+    required String body,
+    String? payload,
+  }) async {
+    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+      'medication_channel',
+      'Medication Reminders',
+      channelDescription: 'test channel',
+      importance: Importance.max,
+      priority: Priority.high,
+    );
+    const DarwinNotificationDetails iosDetails = DarwinNotificationDetails();
+    const NotificationDetails details = NotificationDetails(android: androidDetails, iOS: iosDetails);
+
+    await flutterLocalNotificationsPlugin.show(id, title, body, details, payload: payload);
   }
 }
