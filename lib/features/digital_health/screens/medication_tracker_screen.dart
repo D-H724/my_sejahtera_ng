@@ -11,6 +11,7 @@ import 'package:my_sejahtera_ng/features/digital_health/providers/medication_pro
 import 'package:my_sejahtera_ng/core/providers/theme_provider.dart';
 import 'package:my_sejahtera_ng/core/theme/app_themes.dart';
 import 'package:my_sejahtera_ng/features/gamification/providers/user_progress_provider.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class MedicationTrackerScreen extends ConsumerStatefulWidget {
   const MedicationTrackerScreen({super.key});
@@ -132,13 +133,15 @@ class _MedicationTrackerScreenState extends ConsumerState<MedicationTrackerScree
             backgroundColor: Colors.orangeAccent,
             child: const Icon(LucideIcons.bellRing, size: 18),
             onPressed: () async {
-               debugPrint("Testing Notification...");
-               await NotificationService().showNotification(
-                 id: 999,
+               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Scheduling test for 5s... ⏳")));
+               
+               // Simple 5s test using the new robust system
+               await NotificationService().scheduleOneTimeNotification(
+                 id: 999123, 
                  title: "Test Reminder 🔔",
-                 body: "This is a test notification from MySejahteraNG.",
+                 body: "If you see this, notifications are working!",
+                 time: DateTime.now().add(const Duration(seconds: 5)),
                );
-               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Test Notification Sent! Check status bar.")));
             },
           ),
           const SizedBox(height: 10),

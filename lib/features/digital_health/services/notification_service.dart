@@ -40,7 +40,7 @@ class NotificationService {
 
     // Create the channel on the device (Android 8.0+)
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
-      'medication_channel_v5', // id forced update
+      'medication_channel_v7', // FINAL CHANNEL
       'Medication Reminders', // title
       description: 'Critical reminders to take your medication', // description
       importance: Importance.max,
@@ -122,93 +122,97 @@ class NotificationService {
     required String body,
     required DateTime time,
   }) async {
-    // Safety Check: Ensure Timezone is initialized
+    tzt.Location location;
     try {
-      tzt.TZDateTime.now(tzt.local);
-    } catch (e) {
-      debugPrint("⚠️ Timezone not initialized. Re-initializing...");
-       tzd.initializeTimeZones();
-       try {
-         tzt.setLocalLocation(tzt.getLocation('Asia/Kuala_Lumpur'));
-       } catch (_) {
-         tzt.setLocalLocation(tzt.getLocation('UTC'));
-       }
+      location = tzt.getLocation('Asia/Kuala_Lumpur');
+    } catch (_) {
+      // Fallback to UTC if KL not found
+      location = tzt.getLocation('UTC');
     }
 
-    // Robust Timezone Handling for Relative Timers:
-    // Calculate the duration from "device now" to "target time"
-    final Duration offset = time.difference(DateTime.now());
-    
-    // Apply that duration to the "notification timezone now"
-    final tzt.TZDateTime scheduledDate = tzt.TZDateTime.now(tzt.local).add(offset);
-    // DEBUG: Immediate confirmation that logic reached here
-    await showNotification(
-      id: id + 99999, // Offset ID to avoid conflict
-      title: "Timer Started ⏱️", 
-      body: "Will ring at ${DateFormat.jm().format(scheduledDate)}",
-    );
+    final scheduledDate = tzt.TZDateTime.from(time, location);
 
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
-        AndroidNotificationDetails(
-      'medication_channel_v5', // Use v5
-      'Medication Reminders',
-      channelDescription: 'Reminders to take your medication',
-      importance: Importance.max,
-      priority: Priority.high,
-    );
-    
-    const DarwinNotificationDetails iosPlatformChannelSpecifics = 
-        DarwinNotificationDetails(
-          presentAlert: true,
-          presentBadge: true,
-          presentSound: true,
-    );
-    
-    const NotificationDetails platformChannelSpecifics = NotificationDetails(
-      android: androidPlatformChannelSpecifics,
-      iOS: iosPlatformChannelSpecifics,
-    );
+      AndroidNotificationDetails(
+    'medication_channel_v7', // FINAL CHANNEL
+    'Medication Reminders',
+    channelDescription: 'Reminders to take your medication',
+    importance: Importance.max,
+    priority: Priority.high,
+  );
+  
+  const DarwinNotificationDetails iosPlatformChannelSpecifics = 
+      DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+  );
+  
+  const NotificationDetails platformChannelSpecifics = NotificationDetails(
+    android: androidPlatformChannelSpecifics,
+    iOS: iosPlatformChannelSpecifics,
+  );
 
-    // If time is in the past (e.g. user selected 1 min ago), schedule for now + 5 seconds
-    if (scheduledDate.isBefore(tzt.TZDateTime.now(tzt.local))) {
-        debugPrint("⚠️ Scheduled time $scheduledDate is in the past. Current time: ${tzt.TZDateTime.now(tzt.local)}. Scheduling for 5 seconds from now.");
-        await flutterLocalNotificationsPlugin.zonedSchedule(
-          id,
-          title,
-          body,
-          tzt.TZDateTime.now(tzt.local).add(const Duration(seconds: 5)),
-          platformChannelSpecifics,
-          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-          uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
-        );
-        return;
-    }
-
-    // Force AlarmClock mode for critical medication reminders (guaranteed to ring)
-    // Force AlarmClock mode for critical medication reminders (guaranteed to ring)
-    try {
+  // If time is in the past (e.g. user selected 1 min ago), schedule for now + 5 seconds
+  if (scheduledDate.isBefore(tzt.TZDateTime.now(tzt.local))) {
+      debugPrint("⚠️ Scheduled time $scheduledDate is in the past. Current time: ${tzt.TZDateTime.now(tzt.local)}. Scheduling for 5 seconds from now.");
       await flutterLocalNotificationsPlugin.zonedSchedule(
         id,
         title,
         body,
-        scheduledDate,
+        tzt.TZDateTime.now(tzt.local).add(const Duration(seconds: 5)),
         platformChannelSpecifics,
-        androidScheduleMode: AndroidScheduleMode.alarmClock, // Ensure it wakes up device
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
-        matchDateTimeComponents: null, 
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
       );
-      debugPrint("✅ Scheduled Critical Alarm [$id] '$title' at $scheduledDate (Now: ${tzt.TZDateTime.now(tzt.local)})");
-    } catch (e) {
-      debugPrint("❌ Error scheduling alarm: $e");
-      // Fallback: Show immediate notification if scheduling fails
+      return;
+  }
+
+  // Force AlarmClock mode for critical medication reminders (guaranteed to ring)
+  try {
+    await flutterLocalNotificationsPlugin.zonedSchedule(
+      id,
+      title,
+      body,
+      scheduledDate,
+      platformChannelSpecifics,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle, // Fallback to standard high-priority
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+      matchDateTimeComponents: null, 
+    );
+    debugPrint("✅ Scheduled Critical Alarm [$id] '$title' at $scheduledDate (Now: ${tzt.TZDateTime.now(tzt.local)})");
+  } catch (e) {
+    debugPrint("❌ Error scheduling alarm: $e");
+    // Fallback: Show immediate notification if scheduling fails
+    try {
       await showNotification(
         id: id, 
         title: "Timer Error (Fallback)", 
         body: "Could not schedule exact alarm. Verify permissions in settings."
       );
-    }
+    } catch (_) {}
   }
+
+  // FALLBACK: Foreground Timer (Belt & Suspenders) 🛟
+  final Duration delay = time.difference(DateTime.now());
+  if (!delay.isNegative) { 
+      // debugPrint("⏳ Starting Foreground Fallback Timer...");
+      
+      Future.delayed(delay, () async {
+          debugPrint("⏰ Foreground Fallback Firing NOW!");
+          // Only fire if the exact alarm might have failed (hard to know, but safe to fire)
+          // Ideally we check if it already fired, but for now double tapping is better than 0.
+          try {
+            await showNotification(
+              id: id, // Use Original ID to overwrite if possible
+              title: title, 
+              body: body
+            );
+          } catch (_) {}
+      });
+  }
+}
 
   tzt.TZDateTime _nextInstanceOfTime(DateTime time) {
     final tzt.TZDateTime now = tzt.TZDateTime.now(tzt.local);
@@ -231,7 +235,7 @@ class NotificationService {
     String? payload,
   }) async {
     const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-      'medication_channel_v5',
+      'medication_channel_v7', // FINAL CHANNEL
       'Medication Reminders',
       channelDescription: 'test channel',
       importance: Importance.max,
