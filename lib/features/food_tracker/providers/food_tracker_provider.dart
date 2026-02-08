@@ -92,12 +92,45 @@ class FoodTrackerNotifier extends StateNotifier<FoodTrackerState> {
 
   void reset() => state = FoodTrackerState();
 
+  // --- ALLERGEN DICTIONARY ---
+  static const Map<String, List<String>> _allergenKeywords = {
+    'Peanut': ['peanut', 'kacang tanah', 'satay', 'kuah kacang', 'groundnut'],
+    'Milk & Dairy': ['milk', 'dairy', 'cheese', 'yogurt', 'cream', 'butter', 'latte', 'cappuccino', 'susu', 'keju', 'ghee', 'whey', 'casein'],
+    'Sesame': ['sesame', 'tahini', 'bijan', 'benne'],
+    'Wheat & Gluten': ['wheat', 'gluten', 'bread', 'roti', 'pasta', 'spaghetti', 'macaroni', 'noodle', 'mee', 'flour', 'tepung', 'biscuit', 'cake', 'kuih', 'barley', 'rye', 'seitan'],
+    'Shellfish': ['shellfish', 'prawn', 'shrimp', 'crab', 'lobster', 'clam', 'mussel', 'oyster', 'scallop', 'squid', 'sotong', 'udang', 'ketam', 'kerang', 'lala'],
+    'Fish': ['fish', 'salmon', 'tuna', 'ikan', 'sushi', 'sashimi', 'anchovy', 'bilis'],
+    'Chicken': ['chicken', 'ayam', 'poultry', 'wing', 'breast', 'drumstick'],
+    'Lamb': ['lamb', 'mutton', 'kambing'],
+    'Beef': ['beef', 'steak', 'daging', 'lembu', 'burger', 'meatball'],
+    'Soy': ['soy', 'tofu', 'tempeh', 'tauhu', 'kicap', 'edamame', 'miso'],
+    'Egg': ['egg', 'telur', 'mayo', 'mayonnaise', 'meringue', 'ovalbumin'],
+    'Tree Nuts': ['almond', 'cashew', 'walnut', 'pistachio', 'hazelnut', 'macadamia', 'pecan', 'gajus', 'buah keras'],
+  };
+
   Future<String?> checkAllergyRisk(String name) async {
     state = state.copyWith(isScanning: true);
-    await Future.delayed(1200.ms);
-    final riskFound = state.allergies.any((allergy) => name.toLowerCase().contains(allergy.toLowerCase()));
+    await Future.delayed(500.ms); // Simulate quick check
+    
+    final lowerName = name.toLowerCase();
+    
+    for (final allergy in state.allergies) {
+      final keywords = _allergenKeywords[allergy] ?? [allergy.toLowerCase()];
+      
+      // Check if food name contains any of the keywords for this allergy
+      final match = keywords.firstWhere(
+        (keyword) => lowerName.contains(keyword.toLowerCase()),
+        orElse: () => '',
+      );
+
+      if (match.isNotEmpty) {
+        state = state.copyWith(isScanning: false);
+        return "⚠️ Risk Detected: '${name}' may contain '${allergy}' (Match: $match)";
+      }
+    }
+
     state = state.copyWith(isScanning: false);
-    return riskFound ? "You have consumed an allergen giving food or drink" : null;
+    return null;
   }
 
   void _updateHistory() {
