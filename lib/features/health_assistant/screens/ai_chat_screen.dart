@@ -516,6 +516,13 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
          // User just selected Clinic
          notifier.updateTempData('clinicName', userText);
          
+         // Fetch Meta for Selected Clinic
+         final meta = _getClinicMeta(userText);
+         final double price = (meta['price'] as num).toDouble();
+         int slots = (meta['slots'] as num).toInt();
+         
+         notifier.updateTempData('price', price); // Store for confirmation
+
          // Logic: Filter out past times
          final now = DateTime.now();
          final allSlots = ['09:00 AM', '10:30 AM', '11:00 AM', '02:00 PM', '03:30 PM', '04:30 PM', '08:00 PM'];
@@ -531,9 +538,19 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
              } catch (e) { /* ignore */ }
          }
          
-         if (availableSlots.isEmpty) {
-           availableSlots = ['Tomorrow 09:00 AM', 'Tomorrow 11:00 AM']; // Fallback
+         // DEMO OVERRIDE: If slots are empty or low, inject "Fake" future slots or tomorrow slots
+         // This ensures the demo always looks good regardless of time of day
+         if (availableSlots.length < 2) {
+             // Fake slots for demo purposes
+             if (userText.contains("Gleneagles")) {
+                availableSlots = ['08:00 PM', '08:30 PM', '09:00 PM'];
+             } else {
+                availableSlots = ['08:00 PM', 'Tomorrow 09:00 AM', 'Tomorrow 10:00 AM'];
+             }
          }
+         
+         // SYNC: Update the slot count to match the actual list we are showing
+         slots = availableSlots.length;
 
          response = "Checking availability at $userText... 🏥";
          
@@ -543,7 +560,10 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
          // Delayed "Found slots" message
          Future.delayed(const Duration(milliseconds: 1500), () {
             if (!mounted) return;
-            final finalResponse = "Verified. Here are the available slots for today:";
+            
+            // RICH RESPONSE
+            final finalResponse = "I found **$slots slots** available.\n\nThe consultation fee is **RM ${price.toStringAsFixed(0)}**.\n\nPlease select a time:";
+            
             ref.read(chatProvider.notifier).addMessage(ChatMessage(
               text: finalResponse,
               isUser: false,
@@ -1330,7 +1350,7 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
 
   Widget _buildClinicPicker(List<dynamic> clinics) {
     return Container(
-      height: 140,
+      height: 160, // Increased height for extra tags
       margin: const EdgeInsets.only(top: 10),
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
@@ -1341,11 +1361,13 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
           final parts = clinicRaw.split('|');
           final clinicName = parts[0];
           final distance = parts.length > 1 ? parts[1] : "Unknown";
+          final price = parts.length > 2 ? "RM ${double.tryParse(parts[2])?.toStringAsFixed(0) ?? '50'}" : "RM 50";
+          final slots = parts.length > 3 ? "${parts[3]} slots" : "Available";
 
           return GestureDetector(
             onTap: () => _sendMessage(clinicName),
             child: Container(
-              width: 200,
+              width: 220,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.1),
@@ -1356,31 +1378,62 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.blueAccent.withOpacity(0.2),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(LucideIcons.mapPin, color: Colors.blueAccent, size: 20),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.blueAccent.withOpacity(0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(LucideIcons.mapPin, color: Colors.blueAccent, size: 20),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          clinicName,
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 10),
-                  Text(
-                    clinicName,
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                  const SizedBox(height: 12),
+                  // Details Row
+                  Row(
+                    children: [
+                      _buildMiniTag(LucideIcons.map, distance, Colors.grey),
+                      const SizedBox(width: 6),
+                      _buildMiniTag(LucideIcons.banknote, price, Colors.greenAccent),
+                    ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    distance, 
-                    style: const TextStyle(color: Colors.white54, fontSize: 11),
-                  ),
+                  const SizedBox(height: 6),
+                  _buildMiniTag(LucideIcons.clock, slots, Colors.orangeAccent),
                 ],
               ),
             ),
           ).animate().fadeIn().slideX(delay: (100 * index).ms);
         },
+      ),
+    );
+  }
+
+  Widget _buildMiniTag(IconData icon, String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 10, color: color),
+          const SizedBox(width: 4),
+          Text(label, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w600)),
+        ],
       ),
     );
   }
@@ -1419,6 +1472,8 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
   Widget _buildAppointmentSummary() {
     final appointment = ref.read(appointmentProvider).appointments.lastOrNull;
     if (appointment == null) return const SizedBox.shrink();
+    
+    final dateStr = DateFormat('EEE, d MMM @ h:mm a').format(appointment.dateTime);
 
     return Container(
       margin: const EdgeInsets.only(top: 10),
@@ -1444,7 +1499,9 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
           const SizedBox(height: 12),
           _buildSummaryRow(LucideIcons.user, "Doctor", appointment.doctorName),
           _buildSummaryRow(LucideIcons.mapPin, "Location", appointment.hospitalName),
-          _buildSummaryRow(LucideIcons.clock, "Time", "Today @ Selected Time"),
+          _buildSummaryRow(LucideIcons.clock, "Time", dateStr),
+          Container(height: 1, color: Colors.white10, margin: const EdgeInsets.symmetric(vertical: 8)),
+           _buildSummaryRow(LucideIcons.banknote, "Est. Price", "RM ${appointment.price.toStringAsFixed(2)}"),
         ],
       ),
     ).animate().fadeIn().slideY();
@@ -1464,6 +1521,15 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
     );
   }
 
+
+  Map<String, dynamic> _getClinicMeta(String name) {
+    if (name.contains("Gleneagles")) return {'price': 150.0, 'slots': 3};
+    if (name.contains("Prince Court")) return {'price': 200.0, 'slots': 2};
+    if (name.contains("Klinik Kesihatan")) return {'price': 1.0, 'slots': 45};
+    if (name.contains("Hospital")) return {'price': 5.0, 'slots': 12};
+    if (name.contains("Specialist")) return {'price': 80.0, 'slots': 5};
+    return {'price': 40.0, 'slots': 8}; // General private clinic
+  }
 
   List<String> _mockClinicSearch(String location) {
     final loc = location.toLowerCase();
@@ -1494,7 +1560,11 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
        ];
     }
     
-    return matches.map((c) => "${c['name']}|${c['dist']}").toList();
+    // Format: Name|Distance|Price|Slots
+    return matches.map((c) {
+      final meta = _getClinicMeta(c['name']!);
+      return "${c['name']}|${c['dist']}|${meta['price']}|${meta['slots']}";
+    }).toList();
   }
 
   DateTime _parseTime(String timeStr) {

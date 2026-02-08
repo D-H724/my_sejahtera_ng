@@ -7,6 +7,7 @@ class Appointment {
   final DateTime dateTime;
   final String type; // e.g., "General Checkup", "Vaccination"
   final String? notes;
+  final double price;
 
   Appointment({
     required this.id,
@@ -14,6 +15,7 @@ class Appointment {
     required this.hospitalName,
     required this.dateTime,
     required this.type,
+    this.price = 0.0,
     this.notes,
   });
 }
@@ -83,6 +85,7 @@ class AppointmentNotifier extends Notifier<AppointmentState> {
       hospitalName: data['clinicName'] ?? "Klinik Kesihatan KL",
       dateTime: data['selectedTime'] as DateTime? ?? DateTime.now(),
       type: data['appointmentType'] ?? "General Checkup",
+      price: (data['price'] as num?)?.toDouble() ?? 50.0,
     );
 
     state = state.copyWith(
