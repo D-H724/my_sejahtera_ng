@@ -159,7 +159,13 @@ class _HealthInsightBannerState extends ConsumerState<HealthInsightBanner> with 
                           ),
                           borderData: FlBorderData(show: false),
                           lineTouchData: LineTouchData(
-                            enabled: true,
+                          handleBuiltInTouches: true, // We still want tooltips
+                            touchCallback: (FlTouchEvent event, LineTouchResponse? touchResponse) {
+                              if (event is FlTapUpEvent && touchResponse != null && touchResponse.lineBarSpots != null) {
+                                final spotIndex = touchResponse.lineBarSpots!.first.spotIndex;
+                                _showDailyDetails(context, spotIndex);
+                              }
+                            },
                             touchTooltipData: LineTouchTooltipData(
                               getTooltipColor: _getTooltipColor,
                               fitInsideHorizontally: true,
@@ -167,9 +173,9 @@ class _HealthInsightBannerState extends ConsumerState<HealthInsightBanner> with 
                               tooltipPadding: const EdgeInsets.all(8),
                               getTooltipItems: (List<LineBarSpot> touchedBarSpots) {
                                 return touchedBarSpots.map((barSpot) {
-                                  String guidance = _getGuidance(barSpot.x.toInt());
+                                  // String guidance = _getGuidance(barSpot.x.toInt()); // Moved to modal
                                   return LineTooltipItem(
-                                    'Score: ${barSpot.y.toInt()}\n$guidance',
+                                    'Score: ${barSpot.y.toInt()}',
                                     const TextStyle(
                                       color: Colors.white,
                                       fontWeight: FontWeight.bold,
@@ -224,7 +230,7 @@ class _HealthInsightBannerState extends ConsumerState<HealthInsightBanner> with 
                       ),
                     ),
                     const SizedBox(height: 20),
-
+ 
                     // Stats Row
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -244,15 +250,92 @@ class _HealthInsightBannerState extends ConsumerState<HealthInsightBanner> with 
     );
   }
 
+  void _showDailyDetails(BuildContext context, int dayIndex) {
+    // Mock Data for demonstration
+    final days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    final dayName = days[dayIndex];
+    final score = [3, 4, 3.5, 5, 4.5, 6, 6.5][dayIndex];
+    
+    // Mock specific stats based on score
+    final steps = (score * 1500).toInt(); 
+    final sleep = "${(score + 4).toInt()}h 30m";
+    final bpm = 60 + (score * 2).toInt();
+    final guidance = _getGuidance(dayIndex);
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFF161B1E),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          border: Border.all(color: Colors.white10),
+        ),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+             Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)))),
+             const SizedBox(height: 20),
+             Row(
+               mainAxisAlignment: MainAxisAlignment.spaceBetween,
+               children: [
+                 Text(dayName, style: GoogleFonts.outfit(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                 Container(
+                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                   decoration: BoxDecoration(color: AppThemes.getPrimaryColor(ref.read(themeProvider)).withOpacity(0.2), borderRadius: BorderRadius.circular(20)),
+                   child: Text("Score: $score", style: TextStyle(color: AppThemes.getPrimaryColor(ref.read(themeProvider)), fontWeight: FontWeight.bold)),
+                 )
+               ],
+             ),
+             const SizedBox(height: 10),
+             Text(guidance, style: const TextStyle(color: Colors.white70, fontStyle: FontStyle.italic)),
+             const SizedBox(height: 24),
+             Row(
+               mainAxisAlignment: MainAxisAlignment.spaceBetween,
+               children: [
+                 _buildDetailCard(LucideIcons.footprints, "$steps", "Steps", Colors.orange),
+                 _buildDetailCard(LucideIcons.moon, sleep, "Sleep", Colors.purple),
+                 _buildDetailCard(LucideIcons.activity, "$bpm bpm", "Heart Rate", Colors.red),
+               ],
+             ),
+             const SizedBox(height: 30),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailCard(IconData icon, String value, String label, Color color) {
+    return Container(
+      width: 100,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 24),
+          const SizedBox(height: 8),
+          Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+          Text(label, style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 10)),
+        ],
+      ),
+    );
+  }
+
   String _getGuidance(int dayIndex) {
     switch (dayIndex) {
-      case 0: return "Improvement: Walk +2k steps.";
-      case 1: return "Improvement: Sleep by 11 PM.";
-      case 2: return "Improvement: Drink more water.";
-      case 3: return "Great! Keep it up.";
-      case 4: return "Improvement: Lower sodium.";
-      case 5: return "Improvement: 30m Cardio.";
-      case 6: return "Excellent!";
+      case 0: return "Start the week strong! A bit more walking needed.";
+      case 1: return "Good effort. Try to get to bed earlier.";
+      case 2: return "Mid-week slump? Hydrate and stretch.";
+      case 3: return "Great momentum! Keep it up.";
+      case 4: return "Fri-yay! Watch the sodium intake.";
+      case 5: return "Solid weekend activity. Cardio looking good.";
+      case 6: return "Perfect Sunday recovery. You're ready for next week!";
       default: return "";
     }
   }
