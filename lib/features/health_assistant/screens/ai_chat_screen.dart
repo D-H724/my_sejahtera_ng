@@ -718,7 +718,7 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
     final foodState = ref.read(foodTrackerProvider);
     final medState = ref.read(medicationProvider);
 
-    String systemPrompt = "You are MySejahtera NG's advanced AI Health Assistant. You are concise, friendly, and knowledgeable about public health.";
+    String systemPrompt = "You are MySejahtera NG's advanced AI Health Assistant. You are concise, friendly, and knowledgeable about public health.\n\nIMPORTANT: You must ONLY answer questions related to health, wellness, medicine, the MySejahtera app features, or public safety.\nIf a user asks about anything else (e.g., coding, movies, politics, general knowledge), politely decline by saying: 'I am designed to assist only with health and MySejahtera-related inquiries.' and explain why.";
     
     if (user != null) {
       systemPrompt += "\n\nUser Profile:\n"

@@ -164,7 +164,7 @@ class FoodTrackerNotifier extends StateNotifier<FoodTrackerState> {
       if (apiKey.isEmpty) {
         // Fallback for dev/web if .env fails
         debugPrint("Warning: .env key missing, using fallback.");
-        apiKey = "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"; 
+         apiKey = "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"; 
       }
 
       debugPrint("Sending request to Groq...");
@@ -216,7 +216,7 @@ class FoodTrackerNotifier extends StateNotifier<FoodTrackerState> {
       String apiKey = dotenv.env['GROQ_API_KEY'] ?? '';
       if (apiKey.isEmpty) {
          debugPrint("Warning: .env key missing in Text Analysis, using fallback.");
-         apiKey = "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";
+         apiKey = "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";
       }
 
       final response = await http.post(
