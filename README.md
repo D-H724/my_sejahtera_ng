@@ -149,7 +149,6 @@ Your medical identity, modernized.
 
 ## � Roadmap
 *   [ ] integration with WearOS / Apple Watch.
-*   [ ] Telemedicine video calls with doctors.
 *   [ ] Blockchain-based medical record storage.
 
 ---
