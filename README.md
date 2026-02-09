@@ -96,6 +96,28 @@ Your medical identity, modernized.
 
 ---
 
+## 📥 Downloads & Installation
+
+> **Note:** This app is not yet available on the App Store or Play Store. You must install it manually.
+
+### **Android (APK)**
+1.  Download the **`app-release.apk`** file from this repository (or the Releases tab).
+2.  Open the file on your Android phone.
+3.  Allow "Install from Unknown Sources" if prompted.
+
+### **iOS (IPA) - Unsigned**
+> ⚠️ **Important:** The IPA file is **unsigned** (due to Apple restrictions). You cannot install it directly.
+
+**How to Install:**
+1.  Download the **`ios_app.ipa`** file.
+2.  Use a sideloading tool on your PC/Mac:
+    *   **[AltStore](https://altstore.io/)**: (Recommended) Free, requires refreshing every 7 days.
+    *   **[Sideloadly](https://sideloadly.io/)**: Drag & drop installation.
+    *   **Signulous**: Paid service (no computer needed).
+3.  Once installed, go to **Settings -> General -> VPN & Device Management** on your iPhone and "Trust" your Apple ID to open the app.
+
+---
+
 ## � Installation Guide
 
 1.  **Prerequisites**:
