@@ -1,4 +1,4 @@
-# MySejahtera Next Gen (MySNG) 🇲🇾✨
+# MySejahtera Next Gen (MySJ) 🇲🇾✨
 
 **MySejahtera Next Gen** is a futuristic reimagining of Malaysia's national health superapp. Built with **Flutter**, it moves beyond simple contact tracing to become a proactive, **AI-powered dedicated health companion** for every citizen.
 
