@@ -11,6 +11,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:my_sejahtera_ng/features/check_in/screens/check_in_screen.dart';
 import 'package:my_sejahtera_ng/features/hotspots/screens/hotspot_screen.dart';
 import 'package:my_sejahtera_ng/features/vaccine/screens/vaccine_screen.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:my_sejahtera_ng/core/providers/user_provider.dart';
@@ -55,6 +56,7 @@ class ChatMessage {
 class ChatNotifier extends Notifier<List<ChatMessage>> {
   @override
   List<ChatMessage> build() {
+    _loadHistory();
     return [
       ChatMessage(
         text: 'Hello! I am your virtual assistant , powered by Llama 3 on Groq. I can help you check in, find vaccines, or answer health questions.',
@@ -63,8 +65,52 @@ class ChatNotifier extends Notifier<List<ChatMessage>> {
     ];
   }
 
-  void addMessage(ChatMessage message) {
+  Future<void> _loadHistory() async {
+    final supabase = Supabase.instance.client;
+    final user = supabase.auth.currentUser;
+    if (user == null) return;
+
+    try {
+      final data = await supabase
+          .from('chat_history')
+          .select()
+          .eq('user_id', user.id)
+          .order('created_at');
+
+      if (data.isNotEmpty) {
+        final messages = (data as List).map((map) => ChatMessage(
+          text: map['message'] ?? '',
+          isUser: map['is_user'] ?? true,
+          isError: map['is_error'] ?? false,
+          type: map['type'],
+          metaData: map['meta_data'],
+        )).toList();
+        state = messages;
+      }
+    } catch (e) {
+      debugPrint("Error loading chat history: $e");
+    }
+  }
+
+  Future<void> addMessage(ChatMessage message) async {
     state = [...state, message];
+    
+    final supabase = Supabase.instance.client;
+    final user = supabase.auth.currentUser;
+    if (user != null) {
+      try {
+        await supabase.from('chat_history').insert({
+          'user_id': user.id,
+          'message': message.text,
+          'is_user': message.isUser,
+          'is_error': message.isError,
+          'type': message.type,
+          'meta_data': message.metaData,
+        });
+      } catch (e) {
+        debugPrint("Error saving chat: $e");
+      }
+    }
   }
 }
 
@@ -229,7 +275,9 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
        ref.read(chatProvider.notifier).addMessage(ChatMessage(
          text: "I've set a reminder for **$medName** at **${DateFormat.jm().format(time)}**.",
          isUser: false,
-         actionWidget: _buildActionChip("View Meds", Colors.teal, const MedicationTrackerScreen()),
+         actionWidget: null,
+         type: 'link_action',
+         metaData: {'label': 'View Meds', 'color_value': Colors.teal.value, 'target': 'meds'},
        ));
        _speak(response);
        return;
@@ -273,33 +321,50 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
       if (!mounted) return;
       
       Widget? action;
+      String? actionType;
+      Map<String, dynamic>? actionMeta;
 
       // 2. Action Detection & Fallback Logic
       final combinedContext = "${text.toLowerCase()} ${responseText.toLowerCase()}";
 
       if (combinedContext.contains("check in") || combinedContext.contains("scan")) {
-        action = _buildActionChip("Open Scanner", Colors.blueAccent, const CheckInScreen());
+        // action = _buildActionChip("Open Scanner", Colors.blueAccent, const CheckInScreen());
+        actionType = 'link_action';
+        actionMeta = {'label': 'Open Scanner', 'color_value': Colors.blueAccent.value, 'target': 'check_in'};
       } else if (combinedContext.contains("vaccine") || combinedContext.contains("certificate")) {
-        action = _buildActionChip("View Vaccine", Colors.amber, const VaccineScreen());
+         // action = _buildActionChip("View Vaccine", Colors.amber, const VaccineScreen());
+        actionType = 'link_action';
+        actionMeta = {'label': 'View Vaccine', 'color_value': Colors.amber.value, 'target': 'vaccine'};
       } else if (combinedContext.contains("hotspot") || combinedContext.contains("map") || combinedContext.contains("risk")) {
-        action = _buildActionChip("Check Hotspots", Colors.redAccent, const HotspotScreen());
+         // action = _buildActionChip("Check Hotspots", Colors.redAccent, const HotspotScreen());
+        actionType = 'link_action';
+        actionMeta = {'label': 'Check Hotspots', 'color_value': Colors.redAccent.value, 'target': 'hotspot'};
       // NEW SMART ACTIONS
-      } else if ((combinedContext.contains("log") || combinedContext.contains("track") || combinedContext.contains("record")) && 
+      } else if ((combinedContext.contains("log") || combinedContext.contains("track") || combinedContext.contains("record")) &&
                  (combinedContext.contains("water") || combinedContext.contains("drink") || combinedContext.contains("hydrate"))) {
-        action = _buildActionChip("Log Hydration", Colors.cyanAccent, const FoodTrackerScreen(autoShowHydration: true));
+         // action = _buildActionChip("Log Hydration", Colors.cyanAccent, const FoodTrackerScreen(autoShowHydration: true));
+        actionType = 'link_action';
+        actionMeta = {'label': 'Log Hydration', 'color_value': Colors.cyanAccent.value, 'target': 'hydration'};
       } else if (combinedContext.contains("eat") || combinedContext.contains("food") || combinedContext.contains("diet") || combinedContext.contains("calorie")) {
-         action = _buildActionChip("Log Food", Colors.orangeAccent, const FoodTrackerScreen());
+         // action = _buildActionChip("Log Food", Colors.orangeAccent, const FoodTrackerScreen());
+         actionType = 'link_action';
+         actionMeta = {'label': 'Log Food', 'color_value': Colors.orangeAccent.value, 'target': 'food'};
       } else if (combinedContext.contains("bmi") || combinedContext.contains("vital") || combinedContext.contains("weight") || combinedContext.contains("blood")) {
-         action = _buildActionChip("Update Vitals", Colors.pinkAccent, const HealthVitalsScreen());
+         // action = _buildActionChip("Update Vitals", Colors.pinkAccent, const HealthVitalsScreen());
+         actionType = 'link_action';
+         actionMeta = {'label': 'Update Vitals', 'color_value': Colors.pinkAccent.value, 'target': 'vitals'};
       } else if (combinedContext.contains("medication") || combinedContext.contains("pill") || combinedContext.contains("dose") || combinedContext.contains("medicine")) {
-         action = _buildActionChip("Manage Meds", Colors.greenAccent, const MedicationTrackerScreen());
+         // action = _buildActionChip("Manage Meds", Colors.greenAccent, const MedicationTrackerScreen());
+         actionType = 'link_action';
+         actionMeta = {'label': 'Manage Meds', 'color_value': Colors.greenAccent.value, 'target': 'meds'};
       }
 
       HapticFeedback.mediumImpact(); // Haptic for receive
       ref.read(chatProvider.notifier).addMessage(ChatMessage(
         text: responseText, 
         isUser: false, 
-        actionWidget: action,
+        type: actionType,
+        metaData: actionMeta,
       ));
       await _speak(responseText);
     } catch (e) {
@@ -377,7 +442,8 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
       ref.read(chatProvider.notifier).addMessage(ChatMessage(
         text: response, 
         isUser: false,
-        actionWidget: _buildActionChip("View Hotspot Map", color, const HotspotScreen()),
+        type: 'link_action',
+        metaData: {'label': 'View Hotspot Map', 'color_value': color.value, 'target': 'hotspot'},
       ));
       _speak("Safety check complete. You are in a $status area.");
       _scrollToBottom();
@@ -537,52 +603,35 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
 
       // --- STEP 3: CLINIC SELECTION ---
       else if (step == 3) {
-        // User just selected Location Method
-        
         if (userText.contains("Current Location")) {
              _handleGPSLocationRequest(notifier);
-             return; // Exit here, async gap will handle the rest
+             return; 
         } else if (userText.contains("Manually")) {
              response = "No problem. Which city or state are you looking in? (e.g. 'KL' or 'Penang')";
              notifier.updateTempData('manual_mode_active', true);
         } else {
-             // If they typed a city name manually (handling the 'Select Manually' flow)
              if (state.tempBookingData['manual_mode_active'] == true) {
                  final location = userText.toLowerCase();
-                 List<Map<String, dynamic>> clinics = [];
+                 // Fetch from DB
+                 final allClinics = await notifier.fetchClinics();
                  
-                 if (location.contains("kl") || location.contains("lumpur")) {
-                    clinics = [
-                      {"name": "Klinik Kesihatan Kuala Lumpur", "dist": "3.2 km"},
-                      {"name": "Hospital Kuala Lumpur", "dist": "5.1 km"}
-                    ];
-                    response = "Here are the clinics available in KL:";
-                 } else if (location.contains("penang") || location.contains("pinang")) {
-                    clinics = [
-                      {"name": "Hospital Penang", "dist": "2.4 km"},
-                      {"name": "Klinik Georgetown", "dist": "4.0 km"}
-                    ];
-                    response = "Clinics found in Penang:";
+                 // Filter locally (for demo simplicity)
+                 final matches = allClinics.where((c) {
+                    final searchStr = (c['name'] as String).toLowerCase() + (c['address'] as String).toLowerCase();
+                    return searchStr.contains(location);
+                 }).toList();
+
+                 if (matches.isNotEmpty) {
+                    response = "I found ${matches.length} clinics in $userText:";
+                    // Format: Name|Distance|Price|Slots
+                    // We'll use "Unknown" for distance/price/slots initially, updated in Step 5
+                    final clinicStrings = matches.map((c) => "${c['name']}|Check Map|50|Available").toList();
+                    msgType = 'clinic_list';
+                    meta = {'clinics': clinicStrings};
+                    notifier.nextStep(); // -> Step 4
                  } else {
-                    clinics = [
-                      {"name": "General Clinic (Near You)", "dist": "Unknown"},
-                      {"name": "Community Health Center", "dist": "Unknown"}
-                    ];
-                    response = "Here are some general options nearby:";
+                    response = "I couldn't find any clinics in $userText. Try 'KL' or 'Johor'.";
                  }
-                 
-                 // Manually construct the string list for now as the picker expects simple strings or objects
-                 // But wait, the picker expects objects or strings? The picker logic needs to change to handle distance.
-                 // For now, I'll format the name string to include distance for display simplicity.
-                 // Or better yet, I should update the picker to take a Map.
-                 // Let's stick to the current picker implementation which takes a List<dynamic>. 
-                 // I'll format the string like "Clinic Name|Distance" and parse it in the widget.
-                 
-                 final clinicStrings = clinics.map((c) => "${c['name']}|${c['dist']}").toList();
-                 
-                 msgType = 'clinic_list';
-                 meta = {'clinics': clinicStrings};
-                 notifier.nextStep(); // -> Step 4
              } else {
                  response = "Please choose a location method first.";
              }
@@ -591,15 +640,30 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
 
       // --- STEP 4: TIME SELECTION ---
       else if (step == 4) {
-         // User just selected Clinic
          notifier.updateTempData('clinicName', userText);
          
-         // Fetch Meta for Selected Clinic
-         final meta = _getClinicMeta(userText);
-         final double price = (meta['price'] as num).toDouble();
-         int slots = (meta['slots'] as num).toInt();
+         // 1. Find Clinic ID from Name
+         final allClinics = await notifier.fetchClinics();
+         final clinic = allClinics.firstWhere(
+            (c) => c['name'] == userText, 
+            orElse: () => {'id': 'unknown'}
+         );
+
+         double price = 50.0;
+         int slots = 0;
          
-         notifier.updateTempData('price', price); // Store for confirmation
+         if (clinic['id'] != 'unknown') {
+             // 2. Fetch Services/Slots
+             final services = await notifier.fetchServices(clinic['id']);
+             if (services.isNotEmpty) {
+                 // Use the first service as default
+                 price = (services.first['price'] as num).toDouble();
+                 slots = (services.first['available_slots'] as num).toInt();
+                 notifier.updateTempData('serviceId', services.first['id']); // Store for later
+             }
+         }
+         
+         notifier.updateTempData('price', price);
 
          // Logic: Filter out past times
          final now = DateTime.now();
@@ -609,38 +673,28 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
          for (var slot in allSlots) {
              try {
                final slotDate = _parseTime(slot);
-               // If slot is in the future relative to now (give 15 min buffer)
                if (slotDate.isAfter(now.add(const Duration(minutes: 15)))) {
                  availableSlots.add(slot);
                }
              } catch (e) { /* ignore */ }
          }
          
-         // DEMO OVERRIDE: If slots are empty or low, inject "Fake" future slots or tomorrow slots
-         // This ensures the demo always looks good regardless of time of day
-         if (availableSlots.length < 2) {
-             // Fake slots for demo purposes
-             if (userText.contains("Gleneagles")) {
-                availableSlots = ['08:00 PM', '08:30 PM', '09:00 PM'];
-             } else {
-                availableSlots = ['08:00 PM', 'Tomorrow 09:00 AM', 'Tomorrow 10:00 AM'];
-             }
+         if (availableSlots.isEmpty) {
+             availableSlots = ['Tomorrow 09:00 AM', 'Tomorrow 10:00 AM', 'Tomorrow 02:00 PM'];
          }
-         
-         // SYNC: Update the slot count to match the actual list we are showing
-         slots = availableSlots.length;
+
+         // Override slots count for display
+         if (slots == 0) slots = availableSlots.length;
 
          response = "Checking availability at $userText... 🏥";
          
          ref.read(chatProvider.notifier).addMessage(ChatMessage(text: response, isUser: false));
          _scrollToBottom();
 
-         // Delayed "Found slots" message
-         Future.delayed(const Duration(milliseconds: 1500), () {
+         Future.delayed(const Duration(milliseconds: 1000), () {
             if (!mounted) return;
             
-            // RICH RESPONSE
-            final finalResponse = "I found **$slots slots** available.\n\nThe consultation fee is **RM ${price.toStringAsFixed(0)}**.\n\nPlease select a time:";
+            final finalResponse = "I found **$slots slots** available.\n\nEst. Price: **RM ${price.toStringAsFixed(0)}**.\n\nPlease select a time:";
             
             ref.read(chatProvider.notifier).addMessage(ChatMessage(
               text: finalResponse,
@@ -795,17 +849,25 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
     // Smart Command Parser (Simulated)
     final lowerText = text.toLowerCase();
     String response = "I'm in Offline Mode. I can help you navigate to Check-In, Vaccine, or Hotspots.";
-    Widget? action;
+    // Widget? action;
+    String? actionType;
+    Map<String, dynamic>? actionMeta;
 
     if (lowerText.contains("check in") || lowerText.contains("scan")) {
       response = "Opening the Check-In scanner for you...";
-      action = _buildActionChip("Launch Scanner", Colors.blueAccent, const CheckInScreen());
+      // action = _buildActionChip("Launch Scanner", Colors.blueAccent, const CheckInScreen());
+      actionType = 'link_action';
+      actionMeta = {'label': 'Launch Scanner', 'color_value': Colors.blueAccent.value, 'target': 'check_in'};
     } else if (lowerText.contains("vaccine") || lowerText.contains("certificate")) {
       response = "Here is your vaccination status. Staying vaccinated protects you and your community.";
-      action = _buildActionChip("Show Certificate", Colors.amber, const VaccineScreen());
+      // action = _buildActionChip("Show Certificate", Colors.amber, const VaccineScreen());
+      actionType = 'link_action';
+      actionMeta = {'label': 'Show Certificate', 'color_value': Colors.amber.value, 'target': 'vaccine'};
     } else if (lowerText.contains("hotspot") || lowerText.contains("map")) {
       response = "Checking nearby risk zones. Please stay safe!";
-      action = _buildActionChip("Open Hotspot Map", Colors.redAccent, const HotspotScreen());
+      // action = _buildActionChip("Open Hotspot Map", Colors.redAccent, const HotspotScreen());
+      actionType = 'link_action';
+      actionMeta = {'label': 'Open Hotspot Map', 'color_value': Colors.redAccent.value, 'target': 'hotspot'};
     } else if (lowerText.contains("health") || lowerText.contains("vital") || lowerText.contains("digital")) {
       response = "Did you know you can track your vitals in the Digital Health section?";
     } else if (lowerText.contains("diet") || lowerText.contains("food") || lowerText.contains("eat")) {
@@ -824,7 +886,9 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
       ref.read(chatProvider.notifier).addMessage(ChatMessage(
         text: response, 
         isUser: false, 
-        actionWidget: action,
+        // actionWidget: action,
+        type: actionType,
+        metaData: actionMeta,
       ));
       _speak(response);
       _scrollToBottom();
@@ -1254,7 +1318,9 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
 
                 // Render Action Button if Available
                 if (msg.actionWidget != null)
-                  msg.actionWidget!,
+                  msg.actionWidget!
+                else if (msg.type == 'link_action' && msg.metaData != null)
+                  _buildActionFromMeta(msg.metaData!),
 
                 // Render Choice Chips (Type/Location)
                 if (msg.type == 'choice_chips' && msg.metaData != null)
@@ -1629,50 +1695,9 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
   }
 
 
-  Map<String, dynamic> _getClinicMeta(String name) {
-    if (name.contains("Gleneagles")) return {'price': 150.0, 'slots': 3};
-    if (name.contains("Prince Court")) return {'price': 200.0, 'slots': 2};
-    if (name.contains("Klinik Kesihatan")) return {'price': 1.0, 'slots': 45};
-    if (name.contains("Hospital")) return {'price': 5.0, 'slots': 12};
-    if (name.contains("Specialist")) return {'price': 80.0, 'slots': 5};
-    return {'price': 40.0, 'slots': 8}; // General private clinic
-  }
 
-  List<String> _mockClinicSearch(String location) {
-    final loc = location.toLowerCase();
-    List<Map<String, String>> matches = [];
 
-    // Expanded Database
-    if (loc.contains("kl") || loc.contains("lumpur") || loc.contains("kuala")) {
-      matches = [
-        {"name": "Klinik Kesihatan Kuala Lumpur", "dist": "3.2 km"},
-        {"name": "Gleneagles Kuala Lumpur", "dist": "4.5 km"},
-        {"name": "Prince Court Medical Centre", "dist": "5.1 km"}
-      ];
-    } else if (loc.contains("jb") || loc.contains("johor") || loc.contains("bahru") || loc.contains("nusa")) {
-       matches = [
-        {"name": "Klinik Kesihatan Johor Bahru", "dist": "2.1 km"},
-        {"name": "Gleneagles Medini Johor", "dist": "8.4 km"}, // Nusa Bestari area
-        {"name": "Klinik Kesihatan Tebrau", "dist": "12.0 km"}
-      ];
-    } else if (loc.contains("penang") || loc.contains("george")) {
-       matches = [
-        {"name": "Hospital Pulau Pinang", "dist": "2.4 km"},
-        {"name": "Gleneagles Penang", "dist": "5.0 km"}
-       ];
-    } else {
-       matches = [
-        {"name": "General Clinic ($location)", "dist": "Near you"},
-        {"name": "Community Health Center", "dist": "5.0 km"}
-       ];
-    }
-    
-    // Format: Name|Distance|Price|Slots
-    return matches.map((c) {
-      final meta = _getClinicMeta(c['name']!);
-      return "${c['name']}|${c['dist']}|${meta['price']}|${meta['slots']}";
-    }).toList();
-  }
+
 
   DateTime _parseTime(String timeStr) {
     try {
@@ -1823,6 +1848,28 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
         ],
       ),
     );
+  }
+  Widget _buildActionFromMeta(Map<String, dynamic> meta) {
+    final label = meta['label'] ?? 'View';
+    final colorVal = meta['color_value'] ?? 0xFF2196F3;
+    final target = meta['target'] ?? '';
+    final color = Color(colorVal);
+    
+    Widget? destination;
+    switch (target) {
+      case 'check_in': destination = const CheckInScreen(); break;
+      case 'vaccine': destination = const VaccineScreen(); break;
+      case 'hotspot': destination = const HotspotScreen(); break;
+      case 'hydration': destination = const FoodTrackerScreen(autoShowHydration: true); break;
+      case 'food': destination = const FoodTrackerScreen(); break;
+      case 'vitals': destination = const HealthVitalsScreen(); break;
+      case 'meds': destination = const MedicationTrackerScreen(); break;
+    }
+
+    if (destination != null) {
+      return _buildActionChip(label, color, destination);
+    }
+    return const SizedBox.shrink();
   }
 }
 

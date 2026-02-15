@@ -12,7 +12,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
-
+import 'package:supabase_flutter/supabase_flutter.dart';
 class HotspotScreen extends StatefulWidget {
   const HotspotScreen({super.key});
 
@@ -107,7 +107,8 @@ class _HotspotScreenState extends State<HotspotScreen> {
         _currentPosition = latLng;
         _mapCenter = latLng; // Initialize map center
         _isLoading = false;
-        _hotspots = _generateRandomHotspots(latLng);
+      });
+      _fetchHotspotsFromDB(latLng);
       });
       
       // Check for proximity (simulated check)
@@ -165,45 +166,52 @@ class _HotspotScreenState extends State<HotspotScreen> {
     _mapController.move(latLng, 15);
     setState(() {
         _mapCenter = latLng; // Update map center
-        // Generate new fictional hotspots for the searched area
-        _hotspots = _generateRandomHotspots(latLng);
+        // Fetch real hotspots from DB
+        _fetchHotspotsFromDB(latLng);
     });
   }
 
-  List<CircleMarker> _generateRandomHotspots(LatLng center) {
-    final random = Random();
-    // Predictive mode shows MORE hotspots (simulating future spread)
-    int count = _isPredictiveMode ? 8 : 5; 
-    Color color = _isPredictiveMode ? Colors.orangeAccent : Colors.red;
-    
-    return List.generate(count, (index) {
-      // Generate random offset within ~1km
-      final latOffset = (random.nextDouble() - 0.5) * 0.02;
-      final lngOffset = (random.nextDouble() - 0.5) * 0.02;
+  Future<void> _fetchHotspotsFromDB(LatLng center) async {
+    setState(() => _isLoading = true);
+    try {
+      final supabase = Supabase.instance.client;
+      final response = await supabase.from('hotspots').select();
       
-      return CircleMarker(
-        point: LatLng(center.latitude + latOffset, center.longitude + lngOffset),
-        radius: 100 + random.nextDouble() * 200, // 100-300m radius
-        useRadiusInMeter: true,
-        color: color.withValues(alpha: 0.3),
-        borderColor: color,
-        borderStrokeWidth: 2,
-      );
-    });
+      final List<dynamic> data = response as List<dynamic>;
+      setState(() {
+         _hotspots = data.map((item) {
+           return CircleMarker(
+             point: LatLng(item['latitude'], item['longitude']),
+             radius: (item['radius_meters'] as num).toDouble(),
+             useRadiusInMeter: true,
+             color: (item['risk_level'] == 'High' ? Colors.red : Colors.orange).withOpacity(0.3),
+             borderColor: item['risk_level'] == 'High' ? Colors.red : Colors.orange,
+             borderStrokeWidth: 2,
+           );
+         }).toList();
+         _isLoading = false;
+      });
+      
+      if (_hotspots.isNotEmpty) {
+        _showProximityAlert();
+      }
+    } catch (e) {
+      debugPrint("Error fetching hotspots: $e");
+      setState(() => _isLoading = false);
+    }
   }
+
+  // Legacy Random Generator (Removed)
+  // List<CircleMarker> _generateRandomHotspots(LatLng center) { ... }
 
   bool _isPredictiveMode = false;
-
-  // ... existing methods ...
 
   void _togglePredictiveMode(bool value) {
     setState(() {
       _isPredictiveMode = value;
-      // Use _mapCenter for generation so it works on searched locations too
+      // Re-fetch or filter logic
       if (_mapCenter != null) {
-        _hotspots = _generateRandomHotspots(_mapCenter!);
-      } else if (_currentPosition != null) {
-        _hotspots = _generateRandomHotspots(_currentPosition!);
+        _fetchHotspotsFromDB(_mapCenter!);
       }
     });
   }

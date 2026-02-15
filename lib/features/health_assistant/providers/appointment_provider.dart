@@ -49,16 +49,78 @@ class AppointmentState {
   }
 }
 
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter/foundation.dart';
+
+// ... existing imports ...
+
 class AppointmentNotifier extends Notifier<AppointmentState> {
+  final _supabase = Supabase.instance.client;
+
   @override
   AppointmentState build() {
+    _loadAppointments();
     return AppointmentState();
+  }
+
+  Future<void> _loadAppointments() async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) return;
+
+    try {
+      final response = await _supabase
+          .from('appointments')
+          .select()
+          .eq('user_id', user.id)
+          .order('appointment_time');
+
+      final List<Appointment> loadedParams = (response as List).map((data) {
+        return Appointment(
+          id: data['id'],
+          doctorName: "Dr. Assigned", // Placeholder until we have doctors table
+          hospitalName: data['clinic_name'] ?? 'Unknown Clinic',
+          dateTime: DateTime.parse(data['appointment_time']),
+          type: data['service_name'] ?? 'General',
+          price: (data['price'] as num).toDouble(),
+          // status: data['status']
+        );
+      }).toList();
+
+      state = state.copyWith(appointments: loadedParams);
+    } catch (e) {
+      debugPrint("Error loading appointments: $e");
+    }
+  }
+
+  // Fetch Clinics for Step 3
+  Future<List<Map<String, dynamic>>> fetchClinics() async {
+    try {
+      final response = await _supabase.from('clinics').select();
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      debugPrint("Error fetching clinics: $e");
+      return [];
+    }
+  }
+  
+  // Fetch Services for Step X
+  Future<List<Map<String, dynamic>>> fetchServices(String clinicId) async {
+    try {
+      final response = await _supabase
+          .from('clinic_services')
+          .select()
+          .eq('clinic_id', clinicId);
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      debugPrint("Error fetching services: $e");
+      return [];
+    }
   }
 
   void startBooking() {
     state = state.copyWith(
       isBooking: true,
-      bookingStep: 1, // Start at Step 1: Type Selection
+      bookingStep: 1, 
       tempBookingData: {},
     );
   }
@@ -77,23 +139,47 @@ class AppointmentNotifier extends Notifier<AppointmentState> {
     state = state.copyWith(bookingStep: step);
   }
 
-  void confirmBooking() {
-    final data = state.tempBookingData;
-    final newAppointment = Appointment(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      doctorName: "Dr. Aisyah", // Hardcoded for demo
-      hospitalName: data['clinicName'] ?? "Klinik Kesihatan KL",
-      dateTime: data['selectedTime'] as DateTime? ?? DateTime.now(),
-      type: data['appointmentType'] ?? "General Checkup",
-      price: (data['price'] as num?)?.toDouble() ?? 50.0,
-    );
+  Future<void> confirmBooking() async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) return;
 
-    state = state.copyWith(
-      appointments: [...state.appointments, newAppointment],
-      isBooking: false,
-      bookingStep: 0,
-      tempBookingData: {},
-    );
+    final data = state.tempBookingData;
+    final clinicName = data['clinicName'] ?? "Unknown Clinic";
+    final serviceName = data['appointmentType'] ?? "General Checkup";
+    final time = data['selectedTime'] as DateTime? ?? DateTime.now();
+    final price = (data['price'] as num?)?.toDouble() ?? 50.0;
+
+    try {
+      // 1. Save to Supabase
+      final response = await _supabase.from('appointments').insert({
+        'user_id': user.id,
+        'clinic_name': clinicName,
+        'service_name': serviceName,
+        'appointment_time': time.toIso8601String(),
+        'price': price,
+        'status': 'Confirmed'
+      }).select().single();
+
+      // 2. Update Local State
+      final newAppointment = Appointment(
+        id: response['id'],
+        doctorName: "Dr. Assigned",
+        hospitalName: clinicName,
+        dateTime: time,
+        type: serviceName,
+        price: price,
+      );
+
+      state = state.copyWith(
+        appointments: [...state.appointments, newAppointment],
+        isBooking: false,
+        bookingStep: 0,
+        tempBookingData: {},
+      );
+    } catch (e) {
+      debugPrint("Error confirming booking: $e");
+      // Optionally handle error state
+    }
   }
 
   void cancelBooking() {

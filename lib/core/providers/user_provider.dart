@@ -123,6 +123,8 @@ class UserNotifier extends Notifier<UserSession?> {
     required String username,
     required String icNumber,
     required String phone,
+    required String securityQuestion,
+    required String securityAnswer,
   }) async {
     try {
       await _supabase.auth.signUp(
@@ -133,10 +135,43 @@ class UserNotifier extends Notifier<UserSession?> {
           'username': username,
           'ic_number': icNumber,
           'phone': phone,
+          'security_question': securityQuestion,
+          'security_answer': securityAnswer,
         },
       );
     } catch (e) {
       debugPrint("Sign Up Error: $e");
+      rethrow;
+    }
+  }
+
+  Future<String?> getSecurityQuestion(String email) async {
+    try {
+      final res = await _supabase.rpc('get_security_question', params: {'email_input': email});
+      return res as String?;
+    } catch (e) {
+      debugPrint("Get Question Error: $e");
+      return null;
+    }
+  }
+
+  Future<bool> verifySecurityAnswer(String email, String answer) async {
+    try {
+      final res = await _supabase.rpc('verify_security_answer', params: {'email_input': email, 'answer_input': answer});
+      return res as bool;
+    } catch (e) {
+      debugPrint("Verify Answer Error: $e");
+      return false;
+    }
+  }
+
+  Future<void> resetPassword(String email, String newPassword) async {
+    try {
+      await _supabase.auth.updateUser(
+        UserAttributes(password: newPassword),
+      );
+    } catch (e) {
+      debugPrint("Reset Password Error: $e");
       rethrow;
     }
   }

@@ -8,6 +8,7 @@ import 'package:my_sejahtera_ng/core/widgets/glass_container.dart';
 import 'package:my_sejahtera_ng/core/widgets/holo_id_card.dart';
 import 'package:my_sejahtera_ng/features/auth/screens/sign_up_screen.dart';
 import 'package:my_sejahtera_ng/features/dashboard/screens/dashboard_screen.dart';
+import 'package:my_sejahtera_ng/features/auth/screens/forgot_password_screen.dart';
 import 'package:my_sejahtera_ng/core/utils/ui_utils.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -177,9 +178,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           alignment: Alignment.centerRight,
                           child: TextButton(
                             onPressed: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text("Reset Password not required for prototype"))
-                              );
+                              Navigator.push(context, MaterialPageRoute(builder: (context) => const ForgotPasswordScreen()));
                             },
                             child: const Text("Forgot Password?", style: TextStyle(color: Colors.white60)),
                           ),

@@ -24,7 +24,15 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
   final _phoneController = TextEditingController();
   final _securityAnswerController = TextEditingController();
 
-  final String _securityQuestion = "What is your favorite pet's name?";
+  final List<String> _securityQuestions = [
+    "What is your favorite pet's name?",
+    "What is your mother's maiden name?",
+    "What city were you born in?",
+    "What was the name of your first school?",
+    "What is your favorite food?",
+  ];
+  String _selectedSecurityQuestion = "What is your favorite pet's name?";
+
   bool _isLoading = false;
 
   void _handleSignUp() async {
@@ -39,9 +47,9 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
               username: _usernameController.text.trim().split('@')[0], // Extract username from email
               icNumber: _icController.text.trim(),
               phone: _phoneController.text.trim(),
+              securityQuestion: _selectedSecurityQuestion,
+              securityAnswer: _securityAnswerController.text.trim(),
             );
-
-        if (!mounted) return;
 
         if (!mounted) return;
 
@@ -96,19 +104,57 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                   children: [
                     _buildTextField("Full Name", LucideIcons.user, _nameController),
                     const SizedBox(height: 15),
-                    _buildTextField("IC Number", LucideIcons.creditCard, _icController),
+                    _buildTextField("IC Number", LucideIcons.creditCard, _icController, 
+                        validator: (val) {
+                          if (val == null || val.isEmpty) return "Required";
+                          if (!RegExp(r'^\d{6}-\d{2}-\d{4}$').hasMatch(val) && val.length < 12) return "Enter valid IC (e.g. 990101-14-1234)";
+                          return null;
+                        }),
                     const SizedBox(height: 15),
-                    _buildTextField("Phone Number", LucideIcons.phone, _phoneController),
+                    _buildTextField("Phone Number", LucideIcons.phone, _phoneController,
+                        validator: (val) {
+                          if (val == null || val.isEmpty) return "Required";
+                          if (!RegExp(r'^\+?[\d\-\s]{9,15}$').hasMatch(val)) return "Enter valid phone number";
+                          return null;
+                        }),
                     const SizedBox(height: 15),
-                    _buildTextField("Email", LucideIcons.mail, _usernameController),
+                    _buildTextField("Email", LucideIcons.mail, _usernameController,
+                        validator: (val) {
+                          if (val == null || val.isEmpty) return "Required";
+                          if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(val)) return "Enter valid email";
+                          return null;
+                        }),
                     const SizedBox(height: 15),
-                    _buildTextField("Password", LucideIcons.lock, _passwordController, isPassword: true),
+                    _buildTextField("Password", LucideIcons.lock, _passwordController, isPassword: true,
+                        validator: (val) {
+                          if (val == null || val.isEmpty) return "Required";
+                          if (val.length < 6) return "At least 6 characters";
+                          return null;
+                        }),
                     const SizedBox(height: 15),
                     const Divider(color: Colors.white24),
                     const SizedBox(height: 10),
-                    Text("Security Question: $_securityQuestion", style: const TextStyle(color: Colors.white70)),
-                    const SizedBox(height: 10),
-                    _buildTextField("Answer", LucideIcons.helpCircle, _securityAnswerController),
+                    
+                    // Security Question Dropdown
+                    DropdownButtonFormField<String>(
+                      value: _selectedSecurityQuestion,
+                      dropdownColor: const Color(0xFF161B1E),
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        labelText: "Security Question",
+                        labelStyle: const TextStyle(color: Colors.white70),
+                        prefixIcon: const Icon(LucideIcons.shieldQuestion, color: Colors.white70),
+                        enabledBorder: OutlineInputBorder(borderSide: const BorderSide(color: Colors.white30), borderRadius: BorderRadius.circular(12)),
+                        focusedBorder: OutlineInputBorder(borderSide: const BorderSide(color: AppTheme.accentTeal), borderRadius: BorderRadius.circular(12)),
+                      ),
+                      items: _securityQuestions.map((q) => DropdownMenuItem(value: q, child: Text(q, overflow: TextOverflow.ellipsis, maxLines: 1))).toList(),
+                      onChanged: (val) => setState(() => _selectedSecurityQuestion = val!),
+                    ),
+
+                    const SizedBox(height: 15),
+                    _buildTextField("Answer", LucideIcons.keyRound, _securityAnswerController,
+                        validator: (val) => val == null || val.isEmpty ? "Please answer the security question" : null),
+                    
                     const SizedBox(height: 30),
                     SizedBox(
                       width: double.infinity,
@@ -134,12 +180,12 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
     );
   }
 
-  Widget _buildTextField(String label, IconData icon, TextEditingController controller, {bool isPassword = false}) {
+  Widget _buildTextField(String label, IconData icon, TextEditingController controller, {bool isPassword = false, String? Function(String?)? validator}) {
     return TextFormField(
       controller: controller,
       obscureText: isPassword,
       style: const TextStyle(color: Colors.white),
-      validator: (value) => value!.isEmpty ? "Required" : null,
+      validator: validator ?? (value) => value!.isEmpty ? "Required" : null,
       decoration: InputDecoration(
         labelText: label,
         labelStyle: const TextStyle(color: Colors.white70),

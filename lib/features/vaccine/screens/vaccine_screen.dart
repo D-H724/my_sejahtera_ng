@@ -8,11 +8,51 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:my_sejahtera_ng/core/providers/user_provider.dart';
 import 'package:my_sejahtera_ng/features/vaccine/services/pdf_service.dart';
 
-class VaccineScreen extends ConsumerWidget {
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:intl/intl.dart';
+
+class VaccineScreen extends ConsumerStatefulWidget {
   const VaccineScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<VaccineScreen> createState() => _VaccineScreenState();
+}
+
+class _VaccineScreenState extends ConsumerState<VaccineScreen> {
+  List<Map<String, dynamic>> _vaccineRecords = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchVaccineRecords();
+  }
+
+  Future<void> _fetchVaccineRecords() async {
+    try {
+      final supabase = Supabase.instance.client;
+      final user = supabase.auth.currentUser;
+      
+      if (user != null) {
+        final data = await supabase
+            .from('vaccine_records')
+            .select()
+            .eq('user_id', user.id)
+            .order('dose_number');
+            
+        setState(() {
+          _vaccineRecords = List<Map<String, dynamic>>.from(data);
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error fetching vaccines: $e");
+      setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -50,9 +90,17 @@ class VaccineScreen extends ConsumerWidget {
                    physics: const BouncingScrollPhysics(),
                    children: [
                      // Card 1: The Main Certificate
-                     const Padding(
-                       padding: EdgeInsets.symmetric(horizontal: 10, vertical: 20),
-                       child: Center(child: DigitalCertCard()),
+                     Padding(
+                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
+                       child: Center(
+                          child: Stack(
+                            children: [
+                              const DigitalCertCard(),
+                              if (_isLoading)
+                                Positioned.fill(child: Container(color: Colors.black54, child: const Center(child: CircularProgressIndicator())))
+                            ],
+                          )
+                       ),
                      ).animate().scale(duration: 600.ms, curve: Curves.easeOutBack),
                      
                      // Card 2: Dose Details
@@ -90,7 +138,7 @@ class VaccineScreen extends ConsumerWidget {
                        padding: const EdgeInsets.symmetric(vertical: 16),
                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30), side: const BorderSide(color: Colors.white30))
                      ),
-                     onPressed: () async {
+                     onPressed: _isLoading ? null : () async {
                         final user = ref.read(userProvider);
                         if (user != null) {
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -147,17 +195,36 @@ class VaccineScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 24),
           Expanded(
-            child: ListView(
-              padding: EdgeInsets.zero,
-              children: [
-                 _buildDoseItem("1", "Pfizer", "01 May 2021", "PPV OFFSITE KSL", "EL1234"),
-                 const Divider(color: Colors.white10, height: 30),
-                 _buildDoseItem("2", "Pfizer", "22 May 2021", "PPV UTM", "FA4567"),
-                 const Divider(color: Colors.white10, height: 30),
-                 _buildDoseItem("3", "Pfizer (Booster)", "10 Jan 2022", "PPV UTM", "GH7890"),
-              ],
-            ),
-          )
+            child: _isLoading 
+                ? const Center(child: CircularProgressIndicator(color: Colors.blueAccent))
+                : _vaccineRecords.isEmpty 
+                    ? const Center(child: Text("No records found", style: TextStyle(color: Colors.white54)))
+                    : ListView.separated(
+                        padding: EdgeInsets.zero,
+                        itemCount: _vaccineRecords.length,
+                        separatorBuilder: (_, __) => const Divider(color: Colors.white10, height: 30),
+                        itemBuilder: (context, index) {
+                          final record = _vaccineRecords[index];
+                          return _buildDoseItem(
+                            record['dose_number'].toString(),
+                            record['vaccine_name'] ?? 'Unknown',
+                            DateFormat('dd MMM yyyy').format(DateTime.parse(record['date_administered'])),
+                            record['location'] ?? 'Unknown Location',
+                            record['batch_number'] ?? '-',
+                          );
+                        },
+                      ),
+          ),
+          // Demo Button to generate data if empty
+          if (!_isLoading && _vaccineRecords.isEmpty)
+             TextButton(
+               onPressed: () async {
+                  setState(() => _isLoading = true);
+                  await Supabase.instance.client.rpc('generate_demo_vaccine_record');
+                  await _fetchVaccineRecords();
+               },
+               child: const Text("Generate Demo Records", style: TextStyle(color: Colors.blueAccent)),
+             )
         ],
       ),
     );
