@@ -5,6 +5,8 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:my_sejahtera_ng/core/providers/user_provider.dart';
 import 'package:my_sejahtera_ng/core/theme/app_theme.dart';
 import 'package:my_sejahtera_ng/core/widgets/glass_container.dart';
+import 'package:my_sejahtera_ng/core/utils/ui_utils.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class SignUpScreen extends ConsumerStatefulWidget {
   const SignUpScreen({super.key});
@@ -48,8 +50,15 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         
       } catch (e) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Registration Failed: ${e.toString().replaceAll('Exception:', '')}"), backgroundColor: Colors.red),
+        final errorMsg = e.toString();
+        showElegantErrorDialog(
+          context,
+          title: "Registration Failed",
+          message: errorMsg.contains("User already registered") 
+            ? "An account with this email already exists. Please login instead."
+            : errorMsg.replaceAll('Exception:', '').replaceAll('AuthException:', '').trim(),
+          buttonText: "Try Again",
+          icon: LucideIcons.alertTriangle,
         );
       } finally {
         if (mounted) setState(() => _isLoading = false);

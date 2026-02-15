@@ -8,6 +8,8 @@ import 'package:my_sejahtera_ng/core/widgets/glass_container.dart';
 import 'package:my_sejahtera_ng/core/widgets/holo_id_card.dart';
 import 'package:my_sejahtera_ng/features/auth/screens/sign_up_screen.dart';
 import 'package:my_sejahtera_ng/features/dashboard/screens/dashboard_screen.dart';
+import 'package:my_sejahtera_ng/core/utils/ui_utils.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -58,12 +60,24 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Login Failed: ${e.toString().replaceAll('Exception:', '')}"),
-          backgroundColor: Colors.red,
-        ),
-      );
+      final errorMsg = e.toString();
+      if (errorMsg.contains("Invalid login credentials") || errorMsg.contains("400")) {
+        showElegantErrorDialog(
+          context,
+          title: "Account Not Found",
+          message: "We couldn't find an account with these credentials. Please create a new account to get started.",
+          buttonText: "Create Account",
+          icon: LucideIcons.userPlus,
+          onPressed: _navigateToSignUp,
+        );
+      } else {
+        showElegantErrorDialog(
+          context,
+          title: "Login Failed",
+          message: errorMsg.replaceAll('Exception:', '').replaceAll('AuthException:', '').trim(),
+          buttonText: "Try Again",
+        );
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

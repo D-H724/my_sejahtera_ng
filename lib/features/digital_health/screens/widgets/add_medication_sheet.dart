@@ -5,9 +5,10 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:my_sejahtera_ng/features/digital_health/models/medication.dart';
+import 'package:my_sejahtera_ng/core/utils/ui_utils.dart';
 
 class AddMedicationSheet extends StatefulWidget {
-  final Function(Medication) onSave;
+  final Future<void> Function(Medication) onSave;
 
   const AddMedicationSheet({super.key, required this.onSave});
 
@@ -228,49 +229,62 @@ class _AddMedicationSheetState extends State<AddMedicationSheet> {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () {
-                    if (_formKey.currentState!.validate()) {
-                      // Calculate Time
-                      DateTime finalTime = _selectedTime;
-                      if (_isTimerMode) {
-                        finalTime = DateTime.now().add(Duration(minutes: _selectedDurationMinutes));
-                      }
-                      
-                      final medication = Medication(
-                        name: _nameController.text.isEmpty ? "Quick Timer" : _nameController.text,
-                        dosage: _dosageController.text.isEmpty ? "General" : _dosageController.text,
-                        pillsToTake: int.tryParse(_pillsController.text) ?? 1,
-                        time: finalTime,
-                        instructions: "${_instructionsController.text}${_isTimerMode ? ' (Timer set at ${DateFormat.jm().format(DateTime.now())})' : ''}",
-                        isOneTime: _isTimerMode,
-                      );
-                      
-                      widget.onSave(medication);
-                      
-                      // Show Feedback
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          backgroundColor: _isTimerMode ? Colors.orangeAccent : Colors.blueAccent,
-                          content: Row(
-                            children: [
-                              Icon(_isTimerMode ? LucideIcons.timer : LucideIcons.bell, color: Colors.white),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  _isTimerMode 
-                                    ? "Timer set for ${_selectedDurationMinutes}m! We'll remind you." 
-                                    : "Reminder set for ${DateFormat.jm().format(finalTime)} daily.",
-                                  style: GoogleFonts.outfit(fontWeight: FontWeight.bold)
-                                ),
+                      // Wrap in async function immediately executed
+                      () async {
+                        try {
+                           // Calculate Time
+                          DateTime finalTime = _selectedTime;
+                          if (_isTimerMode) {
+                            finalTime = DateTime.now().add(Duration(minutes: _selectedDurationMinutes));
+                          }
+                          
+                          final medication = Medication(
+                            name: _nameController.text.isEmpty ? "Quick Timer" : _nameController.text,
+                            dosage: _dosageController.text.isEmpty ? "General" : _dosageController.text,
+                            pillsToTake: int.tryParse(_pillsController.text) ?? 1,
+                            time: finalTime,
+                            instructions: "${_instructionsController.text}${_isTimerMode ? ' (Timer set at ${DateFormat.jm().format(DateTime.now())})' : ''}",
+                            isOneTime: _isTimerMode,
+                          );
+                          
+                          await widget.onSave(medication); // Await the save operation
+                          
+                          if (!context.mounted) return;
+                          
+                          // Show Feedback
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              backgroundColor: _isTimerMode ? Colors.orangeAccent : Colors.blueAccent,
+                              content: Row(
+                                children: [
+                                  Icon(_isTimerMode ? LucideIcons.timer : LucideIcons.bell, color: Colors.white),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      _isTimerMode 
+                                        ? "Timer set for ${_selectedDurationMinutes}m! We'll remind you." 
+                                        : "Reminder set for ${DateFormat.jm().format(finalTime)} daily.",
+                                      style: GoogleFonts.outfit(fontWeight: FontWeight.bold)
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                          behavior: SnackBarBehavior.floating,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        )
-                      );
-                      
-                      Navigator.pop(context);
-                    }
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            )
+                          );
+                          
+                          Navigator.pop(context);
+                        } catch (e) {
+                          if (!context.mounted) return;
+                          showElegantErrorDialog(
+                            context,
+                            title: "Failed to Add",
+                            message: "Could not save medication: $e",
+                            buttonText: "OK",
+                          );
+                        }
+                      }();
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blueAccent,

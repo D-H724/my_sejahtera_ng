@@ -13,6 +13,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:my_sejahtera_ng/features/food_tracker/providers/food_tracker_provider.dart';
+import 'package:my_sejahtera_ng/core/utils/ui_utils.dart';
 
 
 
@@ -524,213 +525,35 @@ class _FoodTrackerScreenState extends ConsumerState<FoodTrackerScreen> {
 
   // --- ERROR HANDLING ---
   void _showErrorDialog(BuildContext context, String message) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A0A0A),
-        title: const Icon(LucideIcons.alertTriangle, color: Colors.orangeAccent),
-        content: Text(message, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white)),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("OK", style: TextStyle(color: Colors.white))),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _processImage(BuildContext context, WidgetRef ref, ImageSource source) async {
-    try {
-      final ImagePicker picker = ImagePicker();
-      final XFile? image = await picker.pickImage(source: source, maxWidth: 800, maxHeight: 800, imageQuality: 85);
-      
-      if (image != null) {
-        try {
-           final result = await ref.read(foodTrackerProvider.notifier).analyzeFoodImage(image);
-           if (result != null) _showAnalysisResult(context, ref, result);
-        } catch (e) {
-           _showErrorDialog(context, "Analysis Failed: ${e.toString().replaceAll("Exception: ", "")}");
-        }
-      }
-    } catch (e) {
-      debugPrint("Picker Error: $e");
-      _showErrorDialog(context, "Could not picking image: $e");
-    }
-  }
-
-  void _processText(BuildContext context, WidgetRef ref) {
-    final controller = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF161B1E),
-        title: const Text("Describe Meal", style: TextStyle(color: Colors.white)),
-        content: TextField(
-          controller: controller,
-          style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(hintText: "e.g. A bowl of chicken curry with rice", hintStyle: TextStyle(color: Colors.white30)),
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("CANCEL")),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.purpleAccent),
-            onPressed: () async {
-              Navigator.pop(ctx);
-              if (controller.text.isNotEmpty) {
-                 try {
-                    final result = await ref.read(foodTrackerProvider.notifier).analyzeFoodText(controller.text);
-                    if (result != null) _showAnalysisResult(context, ref, result);
-                 } catch (e) {
-                    _showErrorDialog(context, "Analysis Failed: ${e.toString().replaceAll("Exception: ", "")}");
-                 }
-              }
-            }, 
-            child: const Text("ANALYZE")
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showAnalysisResult(BuildContext context, WidgetRef ref, Map<String, dynamic> result) {
-    final nameCtrl = TextEditingController(text: result['food_name']);
-    final calCtrl = TextEditingController(text: result['calories'].toString());
-    
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF161B1E),
-      isScrollControlled: true,
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom, left: 24, right: 24, top: 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(children: [
-              const Icon(LucideIcons.sparkles, color: Colors.purpleAccent),
-              const SizedBox(width: 10),
-              const Text("AI ANALYSIS RESULT", style: TextStyle(color: Colors.purpleAccent, fontWeight: FontWeight.bold)),
-            ]),
-            const SizedBox(height: 10),
-            Text(result['description'] ?? "Food identified.", style: const TextStyle(color: Colors.white70, fontStyle: FontStyle.italic, fontSize: 13)),
-            const SizedBox(height: 20),
-            TextField(
-              controller: nameCtrl,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(labelText: "Food Name", labelStyle: TextStyle(color: Colors.white54)),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: calCtrl,
-              keyboardType: TextInputType.number,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(labelText: "Calories", labelStyle: TextStyle(color: Colors.white54)),
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () async {
-                   final name = nameCtrl.text;
-                   final cal = int.tryParse(calCtrl.text) ?? 0;
-                   if (name.isNotEmpty && cal > 0) {
-                     // 1. Check for Allergy Risk
-                     final riskMessage = await ref.read(foodTrackerProvider.notifier).checkAllergyRisk(name);
-                     
-                     if (riskMessage != null) {
-                        // 2. Show Warning if detected
-                        _showAllergenWarning(context, riskMessage, () {
-                           // 3. Add on confirmation
-                           ref.read(foodTrackerProvider.notifier).addFood(name, cal);
-                           Navigator.pop(ctx); 
-                        });
-                     } else {
-                        // 4. Add immediately if safe
-                        ref.read(foodTrackerProvider.notifier).addFood(name, cal);
-                        Navigator.pop(ctx);
-                     }
-                   }
-                },
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.purpleAccent, padding: const EdgeInsets.symmetric(vertical: 16)),
-                child: const Text("CONFIRM & ADD"),
-              ),
-            ),
-            const SizedBox(height: 30),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _openAllergySheet(BuildContext context, WidgetRef ref, FoodTrackerState s) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF161B1E),
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setST) => Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text("SELECT ALLERGENS", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 20),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: availableAllergens.map((allergy) {
-                  final isSelected = ref.watch(foodTrackerProvider).allergies.contains(allergy);
-                  return GestureDetector(
-                    onTap: () {
-                      ref.read(foodTrackerProvider.notifier).toggleAllergy(allergy);
-                      setST(() {});
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: isSelected ? Colors.red.withOpacity(0.2) : Colors.white.withOpacity(0.05),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: isSelected ? Colors.redAccent : Colors.transparent),
-                      ),
-                      child: Text(allergy, style: TextStyle(color: isSelected ? Colors.redAccent : Colors.white70)),
-                    ),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 30),
-              SizedBox(width: double.infinity, child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent), onPressed: () => Navigator.pop(context), child: const Text("SAVE OPTIONS"))),
-            ],
-          ),
-        ),
-      ),
+    showElegantErrorDialog(
+      context,
+      title: "Error",
+      message: message,
+      buttonText: "OK",
     );
   }
 
   void _showAllergenWarning(BuildContext context, String message, VoidCallback onConfirm) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A0A0A),
-        title: const Icon(LucideIcons.alertCircle, color: Colors.redAccent),
-        content: Text(message, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white)),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("CANCEL")),
-          ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent), onPressed: () { onConfirm(); Navigator.pop(ctx); }, child: const Text("PROCEED")),
-        ],
-      ),
+    showElegantErrorDialog(
+      context,
+      title: "Allergy Alert",
+      message: message,
+      buttonText: "PROCEED ANYWAY",
+      icon: LucideIcons.alertTriangle,
+      iconColor: Colors.redAccent,
+      onPressed: onConfirm,
     );
   }
 
   void _showResetDialog(BuildContext context, WidgetRef ref) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF161B1E),
-        title: const Text("Reset all data?", style: TextStyle(color: Colors.white)),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("NO")),
-          TextButton(onPressed: () { ref.read(foodTrackerProvider.notifier).reset(); Navigator.pop(ctx); }, child: const Text("YES", style: TextStyle(color: Colors.redAccent))),
-        ],
-      ),
+    showElegantErrorDialog(
+      context,
+      title: "Reset Data",
+      message: "Are you sure you want to delete all food logs? This action cannot be undone.",
+      buttonText: "YES, RESET",
+      icon: LucideIcons.trash2,
+      iconColor: Colors.redAccent,
+      onPressed: () => ref.read(foodTrackerProvider.notifier).reset(),
     );
   }
 

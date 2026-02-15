@@ -7,6 +7,7 @@ import 'package:my_sejahtera_ng/features/gamification/providers/user_progress_pr
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:my_sejahtera_ng/features/check_in/services/check_in_service.dart';
+import 'package:my_sejahtera_ng/core/utils/ui_utils.dart';
 
 class CheckInScreen extends ConsumerStatefulWidget {
   const CheckInScreen({super.key});
@@ -192,9 +193,13 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> with SingleTicker
                                ref.read(userProgressProvider.notifier).completeQuest('checkIn');
                                Navigator.pop(context);
                              } catch (e) {
-                               if (!context.mounted) return;
-                               ScaffoldMessenger.of(context).showSnackBar(
-                                 SnackBar(content: Text("Check-in Failed: $e"), backgroundColor: Colors.red),
+                               showElegantErrorDialog(
+                                 context,
+                                 title: "Check-in Failed",
+                                 message: e.toString().contains("User not logged in") 
+                                  ? "You must be logged in to check in." 
+                                  : e.toString(),
+                                 buttonText: "OK",
                                );
                              }
                           },
