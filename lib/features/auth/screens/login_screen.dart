@@ -23,10 +23,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   void _handleLogin() async {
     // Basic validation
-    if (_usernameController.text.isEmpty) {
+    if (_usernameController.text.isEmpty || _passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Please enter a username to proceed"),
+          content: Text("Please enter both email and password"),
           behavior: SnackBarBehavior.floating,
           backgroundColor: Colors.redAccent,
         ),
@@ -36,31 +36,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     setState(() => _isLoading = true);
 
-    // Simulate network delay for realism
-    await Future.delayed(const Duration(milliseconds: 1500));
+    try {
+      // Use Supabase Auth
+      await ref.read(userProvider.notifier).login(
+            _usernameController.text.trim(),
+            _passwordController.text.trim(),
+          );
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    // Create dummy user session
-    // We allow any password, simply proceeding with the entered username
-    final dummyUser = UserSession(
-      id: 9999, // Dummy ID
-      username: _usernameController.text,
-      fullName: _usernameController.text.isEmpty ? "Ali Bin Abu" : _usernameController.text, 
-      icNumber: "900101-14-5678", 
-      phone: "+6012-3456789",
-      // Fake Medical Data for Demo
-      bloodType: "O+",
-      allergies: "Peanuts, Penicillin",
-      medicalCondition: "Asthma (Mild)",
-      emergencyContact: "+6012-987-6543 (Wife)",
-    );
-
-    // Update state
-    ref.read(userProvider.notifier).login(dummyUser);
-
-    // Proceed to Dashboard
-    if (mounted) {
+      // Proceed to Dashboard
       Navigator.pushReplacement(
         context,
         PageRouteBuilder(
@@ -71,6 +56,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           transitionDuration: const Duration(milliseconds: 800),
         ),
       );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Login Failed: ${e.toString().replaceAll('Exception:', '')}"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -148,12 +143,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     padding: const EdgeInsets.all(28),
                     child: Column(
                       children: [
-                        _buildTextField(
-                          label: "Username / ID",
-                          icon: LucideIcons.user,
-                          controller: _usernameController,
-                          delay: 400.ms,
-                        ),
+                          _buildTextField(
+                            label: "Email",
+                            icon: LucideIcons.mail,
+                            controller: _usernameController,
+                            delay: 400.ms,
+                          ),
                         const SizedBox(height: 20),
                         _buildTextField(
                           label: "Password",
@@ -305,7 +300,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   void _showEmergencyCard(String ic) {
     // Mock user for emergency display
     final emergencyUser = UserSession(
-      id: 0,
+      id: "0",
       username: "emergency_view",
       fullName: "CITIZEN $ic",
       icNumber: ic,

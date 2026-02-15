@@ -7,15 +7,50 @@ import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:image_picker/image_picker.dart';
-
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:my_sejahtera_ng/core/services/supabase_service.dart';
 // --- DATA MODELS ---
 enum DrinkType { water, tea, coffee, juice, milk }
 
 class FoodEntry {
+  final int? id;
   final String name;
   final int calories;
   final DrinkType? type;
-  FoodEntry(this.name, this.calories, {this.type});
+  
+  FoodEntry({
+    this.id,
+    required this.name, 
+    required this.calories, 
+    this.type
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'name': name,
+      'calories': calories,
+      'entry_type': type != null ? 'drink' : 'food',
+      'meta_data': type != null ? {'drink_type': type.toString().split('.').last} : {},
+    };
+  }
+
+  factory FoodEntry.fromMap(Map<String, dynamic> map) {
+    DrinkType? dType;
+    if (map['entry_type'] == 'drink' && map['meta_data'] != null) {
+      final typeStr = map['meta_data']['drink_type'];
+      dType = DrinkType.values.firstWhere(
+        (e) => e.toString().split('.').last == typeStr, 
+        orElse: () => DrinkType.water
+      );
+    }
+    
+    return FoodEntry(
+      id: map['id'],
+      name: map['name'],
+      calories: map['calories'],
+      type: dType,
+    );
+  }
 }
 
 class FoodTrackerState {
@@ -78,9 +113,40 @@ class FoodTrackerState {
 final foodTrackerProvider = StateNotifierProvider<FoodTrackerNotifier, FoodTrackerState>((ref) => FoodTrackerNotifier());
 
 class FoodTrackerNotifier extends StateNotifier<FoodTrackerState> {
-  FoodTrackerNotifier() : super(FoodTrackerState());
+  FoodTrackerNotifier() : super(FoodTrackerState()) {
+    _supabase = SupabaseService().client;
+    _loadDailyLogs();
+  }
 
+  late final SupabaseClient _supabase;
   String get _todayKey => DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+  Future<void> _loadDailyLogs() async {
+    try {
+      final user = _supabase.auth.currentUser;
+      if (user == null) return;
+
+      final startOfDay = DateTime.now().copyWith(hour: 0, minute: 0, second: 0);
+      final endOfDay = DateTime.now().copyWith(hour: 23, minute: 59, second: 59);
+
+      final response = await _supabase
+          .from('food_logs')
+          .select()
+          .eq('user_id', user.id)
+          .gte('created_at', startOfDay.toIso8601String())
+          .lte('created_at', endOfDay.toIso8601String());
+
+      final logs = (response as List).map((e) => FoodEntry.fromMap(e)).toList();
+      
+      state = state.copyWith(
+        foods: logs.where((e) => e.type == null).toList(),
+        drinks: logs.where((e) => e.type != null).toList(),
+      );
+      _updateHistory();
+    } catch (e) {
+      debugPrint("Error loading food logs: $e");
+    }
+  }
 
   void setTarget(int target) => state = state.copyWith(calorieTarget: target);
 
@@ -90,7 +156,10 @@ class FoodTrackerNotifier extends StateNotifier<FoodTrackerState> {
     state = state.copyWith(allergies: list);
   }
 
-  void reset() => state = FoodTrackerState();
+  void reset() {
+    state = FoodTrackerState();
+    _loadDailyLogs();
+  }
 
   // --- ALLERGEN DICTIONARY ---
   static const Map<String, List<String>> _allergenKeywords = {
@@ -139,16 +208,51 @@ class FoodTrackerNotifier extends StateNotifier<FoodTrackerState> {
     state = state.copyWith(dailyHistory: history);
   }
 
-  void addFood(String name, int cal) {
-    state = state.copyWith(foods: [...state.foods, FoodEntry(name, cal)]);
-    _updateHistory();
+  Future<void> addFood(String name, int cal) async {
+    try {
+      final user = _supabase.auth.currentUser;
+      if (user == null) return;
+
+      final entry = FoodEntry(name: name, calories: cal);
+      final data = entry.toMap();
+      data['user_id'] = user.id;
+
+      final response = await _supabase
+          .from('food_logs')
+          .insert(data)
+          .select()
+          .single();
+
+      final newEntry = FoodEntry.fromMap(response);
+      state = state.copyWith(foods: [...state.foods, newEntry]);
+      _updateHistory();
+    } catch (e) {
+      debugPrint("Error adding food: $e");
+    }
   }
 
-  void addDrink(String name, int cal, DrinkType type) {
-    // Requirements logic: Water must be 0
-    final validatedCal = (type == DrinkType.water) ? 0 : cal;
-    state = state.copyWith(drinks: [...state.drinks, FoodEntry(name, validatedCal, type: type)]);
-    _updateHistory();
+  Future<void> addDrink(String name, int cal, DrinkType type) async {
+    try {
+      final user = _supabase.auth.currentUser;
+      if (user == null) return;
+
+      final validatedCal = (type == DrinkType.water) ? 0 : cal;
+      final entry = FoodEntry(name: name, calories: validatedCal, type: type);
+      final data = entry.toMap();
+      data['user_id'] = user.id;
+
+      final response = await _supabase
+          .from('food_logs')
+          .insert(data)
+          .select()
+          .single();
+
+      final newEntry = FoodEntry.fromMap(response);
+      state = state.copyWith(drinks: [...state.drinks, newEntry]);
+      _updateHistory();
+    } catch (e) {
+      debugPrint("Error adding drink: $e");
+    }
   }
 
   Future<Map<String, dynamic>?> analyzeFoodImage(XFile image) async {

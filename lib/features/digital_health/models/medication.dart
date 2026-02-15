@@ -23,14 +23,14 @@ class Medication {
 
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
+      // 'id': id, // Let Supabase generate ID
       'name': name,
       'dosage': dosage,
-      'pillsToTake': pillsToTake,
+      'pills_to_take': pillsToTake,
       'time': time.toIso8601String(),
       'instructions': instructions,
-      'isTaken': isTaken ? 1 : 0,
-      'isOneTime': isOneTime ? 1 : 0,
+      'is_taken': isTaken,
+      'is_one_time': isOneTime,
     };
   }
 
@@ -39,11 +39,11 @@ class Medication {
       id: map['id'],
       name: map['name'],
       dosage: map['dosage'],
-      pillsToTake: map['pillsToTake'],
+      pillsToTake: map['pills_to_take'] ?? 1,
       time: DateTime.parse(map['time']),
-      instructions: map['instructions'],
-      isTaken: map['isTaken'] == 1,
-      isOneTime: map['isOneTime'] == 1,
+      instructions: map['instructions'] ?? '',
+      isTaken: map['is_taken'] ?? false,
+      isOneTime: map['is_one_time'] ?? false,
     );
   }
 

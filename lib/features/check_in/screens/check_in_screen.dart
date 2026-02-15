@@ -6,6 +6,7 @@ import 'package:my_sejahtera_ng/core/widgets/glass_container.dart';
 import 'package:my_sejahtera_ng/features/gamification/providers/user_progress_provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:my_sejahtera_ng/features/check_in/services/check_in_service.dart';
 
 class CheckInScreen extends ConsumerStatefulWidget {
   const CheckInScreen({super.key});
@@ -42,7 +43,38 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> with SingleTicker
         actions: [
           IconButton(
              icon: const Icon(LucideIcons.history, color: Colors.white),
-             onPressed: () {},
+             onPressed: () async {
+               final history = await CheckInService().getHistory();
+               if (!context.mounted) return;
+               
+               showDialog(
+                 context: context,
+                 builder: (ctx) => AlertDialog(
+                   backgroundColor: const Color(0xFF161B1E),
+                   title: const Text("Check-In History", style: TextStyle(color: Colors.white)),
+                   content: SizedBox(
+                     width: double.maxFinite,
+                     child: history.isEmpty 
+                     ? const Text("No recent check-ins found.", style: TextStyle(color: Colors.white70))
+                     : ListView.builder(
+                       shrinkWrap: true,
+                       itemCount: history.length,
+                       itemBuilder: (ctx, i) {
+                         final item = history[i];
+                         // Parse time
+                         final time = DateTime.parse(item['check_in_time']).toLocal();
+                         return ListTile(
+                           leading: const Icon(LucideIcons.mapPin, color: Colors.cyanAccent),
+                           title: Text(item['location_name'] ?? "Unknown", style: const TextStyle(color: Colors.white)),
+                           subtitle: Text("${time.day}/${time.month} ${time.hour}:${time.minute.toString().padLeft(2,'0')}", style: const TextStyle(color: Colors.white54)),
+                         );
+                       },
+                     ),
+                   ),
+                   actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("CLOSE"))],
+                 ),
+               );
+             },
           )
         ],
       ),
@@ -145,12 +177,26 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> with SingleTicker
                         const SizedBox(width: 20),
                         // Simulate Scan Button
                         GestureDetector(
-                          onTap: () {
-                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text("Check-in Successful!"), backgroundColor: Colors.green),
-                            );
-                            ref.read(userProgressProvider.notifier).completeQuest('checkIn');
-                            Navigator.pop(context);
+                          onTap: () async {
+                             try {
+                               // Simulate mock location for now (in real app, use Geocoder)
+                               final mockPlaces = ["Sunway Pyramid", "Mid Valley", "KLCC", "Pavilion", "One Utama"];
+                               final place = (mockPlaces..shuffle()).first;
+                               
+                               await CheckInService().checkIn(place, "Kuala Lumpur");
+                               
+                               if (!context.mounted) return;
+                               ScaffoldMessenger.of(context).showSnackBar(
+                                 SnackBar(content: Text("Checked in at $place!"), backgroundColor: Colors.green),
+                               );
+                               ref.read(userProgressProvider.notifier).completeQuest('checkIn');
+                               Navigator.pop(context);
+                             } catch (e) {
+                               if (!context.mounted) return;
+                               ScaffoldMessenger.of(context).showSnackBar(
+                                 SnackBar(content: Text("Check-in Failed: $e"), backgroundColor: Colors.red),
+                               );
+                             }
                           },
                           child: Container(
                             width: 70, height: 70,

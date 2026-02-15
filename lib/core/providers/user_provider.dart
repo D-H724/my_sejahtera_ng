@@ -1,7 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:my_sejahtera_ng/core/services/supabase_service.dart';
 
 class UserSession {
-  final int id;
+  final String id; // Changed to String (UUID)
   final String username;
   final String fullName;
   final String icNumber;
@@ -10,6 +13,7 @@ class UserSession {
   final String allergies;
   final String emergencyContact;
   final String medicalCondition;
+  final String? email;
 
   UserSession({
     required this.id,
@@ -21,19 +25,21 @@ class UserSession {
     this.allergies = "None",
     this.emergencyContact = "Not Set",
     this.medicalCondition = "None",
+    this.email,
   });
 
   factory UserSession.fromMap(Map<String, dynamic> map) {
     return UserSession(
-      id: map['id'],
-      username: map['username'],
-      fullName: map['fullName'],
-      icNumber: map['icNumber'],
-      phone: map['phone'],
-      bloodType: map['bloodType'] ?? "Unknown",
+      id: map['id'] ?? '',
+      username: map['username'] ?? 'User',
+      fullName: map['full_name'] ?? 'Unknown',
+      icNumber: map['ic_number'] ?? '',
+      phone: map['phone'] ?? '',
+      bloodType: map['blood_type'] ?? "Unknown",
       allergies: map['allergies'] ?? "None",
-      emergencyContact: map['emergencyContact'] ?? "Not Set",
-      medicalCondition: map['medicalCondition'] ?? "None",
+      emergencyContact: map['emergency_contact'] ?? "Not Set",
+      medicalCondition: map['medical_condition'] ?? "None",
+      email: map['email'],
     );
   }
 
@@ -53,32 +59,116 @@ class UserSession {
       allergies: allergies ?? this.allergies,
       emergencyContact: emergencyContact ?? this.emergencyContact,
       medicalCondition: medicalCondition ?? this.medicalCondition,
+      email: email,
     );
   }
 }
 
 class UserNotifier extends Notifier<UserSession?> {
+  late final SupabaseClient _supabase;
+
   @override
   UserSession? build() {
+    _supabase = SupabaseService().client;
+    
+    // Listen to Auth State Changes
+    _supabase.auth.onAuthStateChange.listen((data) {
+      final event = data.event;
+      final session = data.session;
+
+      if (event == AuthChangeEvent.signedIn && session != null) {
+        _loadProfile(session.user.id);
+      } else if (event == AuthChangeEvent.signedOut) {
+        state = null;
+      }
+    });
+
+    // Initial check
+    final session = _supabase.auth.currentSession;
+    if (session != null) {
+      _loadProfile(session.user.id);
+    }
+    
     return null;
   }
 
-  void login(UserSession user) {
-    state = user;
+  Future<void> _loadProfile(String userId) async {
+    try {
+      final response = await _supabase
+          .from('profiles')
+          .select()
+          .eq('id', userId)
+          .single();
+      
+      state = UserSession.fromMap(response);
+    } catch (e) {
+      debugPrint("Error loading profile: $e");
+      // Handle edge case: User exists in Auth but not in Profiles?
+    }
   }
 
-  void logout() {
-    state = null;
+  Future<void> login(String email, String password) async {
+    try {
+      await _supabase.auth.signInWithPassword(email: email, password: password);
+    } catch (e) {
+      debugPrint("Login Error: $e");
+      rethrow;
+    }
   }
 
-  void updateMedicalInfo({String? blood, String? allergy, String? contact, String? condition}) {
-    if (state != null) {
+  Future<void> signUp({
+    required String email,
+    required String password,
+    required String fullName,
+    required String username,
+    required String icNumber,
+    required String phone,
+  }) async {
+    try {
+      await _supabase.auth.signUp(
+        email: email,
+        password: password,
+        data: {
+          'full_name': fullName,
+          'username': username,
+          'ic_number': icNumber,
+          'phone': phone,
+        },
+      );
+    } catch (e) {
+      debugPrint("Sign Up Error: $e");
+      rethrow;
+    }
+  }
+
+  Future<void> logout() async {
+    await _supabase.auth.signOut();
+  }
+
+  Future<void> updateMedicalInfo({String? blood, String? allergy, String? contact, String? condition}) async {
+    if (state == null) return;
+
+    final updates = {
+      if (blood != null) 'blood_type': blood,
+      if (allergy != null) 'allergies': allergy,
+      if (contact != null) 'emergency_contact': contact,
+      if (condition != null) 'medical_condition': condition,
+      'updated_at': DateTime.now().toIso8601String(),
+    };
+
+    try {
+      await _supabase.from('profiles').update(updates).eq('id', state!.id);
+      
+      // Optimistic update
       state = state!.copyWith(
         bloodType: blood,
         allergies: allergy,
         emergencyContact: contact,
         medicalCondition: condition,
       );
+    } catch (e) {
+      debugPrint("Update Error: $e");
+      rethrow;
     }
   }
 }

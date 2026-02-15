@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:my_sejahtera_ng/core/services/supabase_service.dart';
 import 'package:my_sejahtera_ng/features/digital_health/models/medication.dart';
 import 'package:my_sejahtera_ng/features/digital_health/services/notification_service.dart';
 
@@ -15,27 +17,60 @@ class MedicationState {
 
 class MedicationNotifier extends StateNotifier<MedicationState> {
   final NotificationService _notificationService = NotificationService();
+  late final SupabaseClient _supabase;
 
-  MedicationNotifier() : super(MedicationState());
+  MedicationNotifier() : super(MedicationState()) {
+    _supabase = SupabaseService().client;
+    _loadMedications();
+  }
+
+  Future<void> _loadMedications() async {
+    try {
+      final user = _supabase.auth.currentUser;
+      if (user == null) return;
+
+      final response = await _supabase
+          .from('medications')
+          .select()
+          .eq('user_id', user.id)
+          .order('time', ascending: true);
+
+      final meds = (response as List).map((e) => Medication.fromMap(e)).toList();
+      state = state.copyWith(medications: meds);
+    } catch (e) {
+      debugPrint("Error loading medications: $e");
+    }
+  }
 
   Future<void> addMedication(Medication medication) async {
     try {
-      // FIX: Notification IDs must be 32-bit integers on Android
-      final id = (DateTime.now().millisecondsSinceEpoch % 2147483647); 
-      final newMedication = medication.copyWith(id: id);
+      final user = _supabase.auth.currentUser;
+      if (user == null) throw "User not logged in";
+
+      final medData = medication.toMap();
+      medData['user_id'] = user.id; // Add user_id manually
+
+      final response = await _supabase
+          .from('medications')
+          .insert(medData)
+          .select()
+          .single();
+
+      final newMedication = Medication.fromMap(response);
       
       state = state.copyWith(medications: [...state.medications, newMedication]);
 
+      // Notifications Logic (Keep local)
       if (newMedication.isOneTime) {
           await _notificationService.scheduleOneTimeNotification(
-            id: id,
+            id: newMedication.id ?? 0,
             title: 'Medication Timer: ${newMedication.name} ⏳',
             body: 'Time to take ${newMedication.pillsToTake} pills now! ${newMedication.instructions}',
             time: newMedication.time,
           );
       } else {
           await _notificationService.scheduleDailyNotification(
-            id: id,
+            id: newMedication.id ?? 0,
             title: 'Time to take ${newMedication.name} 💊',
             body: 'Take ${newMedication.pillsToTake} pills. ${newMedication.instructions}',
             time: newMedication.time,
@@ -46,15 +81,28 @@ class MedicationNotifier extends StateNotifier<MedicationState> {
     }
   }
 
-  void toggleMedication(int id) {
-    state = state.copyWith(
-      medications: state.medications.map((med) {
-        if (med.id == id) {
-          return med.copyWith(isTaken: !med.isTaken);
-        }
-        return med;
-      }).toList(),
-    );
+  Future<void> toggleMedication(int id) async {
+    // Optimistic Update
+    final oldState = state;
+    final updatedList = state.medications.map((med) {
+      if (med.id == id) {
+        return med.copyWith(isTaken: !med.isTaken);
+      }
+      return med;
+    }).toList();
+    
+    state = state.copyWith(medications: updatedList);
+
+    try {
+      final med = updatedList.firstWhere((m) => m.id == id);
+      await _supabase
+          .from('medications')
+          .update({'is_taken': med.isTaken})
+          .eq('id', id);
+    } catch (e) {
+      debugPrint("Error toggling medication: $e");
+      state = oldState; // Revert on error
+    }
   }
 }
 

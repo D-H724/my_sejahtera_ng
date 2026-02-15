@@ -1,18 +1,16 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
-import 'package:lucide_icons/lucide_icons.dart';
-// import 'package:my_sejahtera_ng/core/services/database_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:my_sejahtera_ng/core/providers/user_provider.dart';
 import 'package:my_sejahtera_ng/core/theme/app_theme.dart';
 import 'package:my_sejahtera_ng/core/widgets/glass_container.dart';
 
-class SignUpScreen extends StatefulWidget {
+class SignUpScreen extends ConsumerStatefulWidget {
   const SignUpScreen({super.key});
 
   @override
-  State<SignUpScreen> createState() => _SignUpScreenState();
+  ConsumerState<SignUpScreen> createState() => _SignUpScreenState();
 }
 
-class _SignUpScreenState extends State<SignUpScreen> {
+class _SignUpScreenState extends ConsumerState<SignUpScreen> {
   final _formKey = GlobalKey<FormState>();
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -28,23 +26,30 @@ class _SignUpScreenState extends State<SignUpScreen> {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
 
-      // Mock registration
-      await Future.delayed(const Duration(milliseconds: 1000));
-      final result = 1; // Always success
+      try {
+        await ref.read(userProvider.notifier).signUp(
+              email: _usernameController.text.trim(),
+              password: _passwordController.text.trim(),
+              fullName: _nameController.text.trim(),
+              username: _usernameController.text.trim().split('@')[0], // Extract username from email
+              icNumber: _icController.text.trim(),
+              phone: _phoneController.text.trim(),
+            );
 
-      setState(() => _isLoading = false);
+        if (!mounted) return;
 
-      if (!mounted) return;
-
-      if (result != -1) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Account created! Please login."), backgroundColor: Colors.green),
+          const SnackBar(content: Text("Account created! Please check your email to confirm."), backgroundColor: Colors.green),
         );
         Navigator.pop(context);
-      } else {
+        
+      } catch (e) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Username already exists."), backgroundColor: Colors.red),
+          SnackBar(content: Text("Registration Failed: ${e.toString().replaceAll('Exception:', '')}"), backgroundColor: Colors.red),
         );
+      } finally {
+        if (mounted) setState(() => _isLoading = false);
       }
     }
   }
@@ -80,7 +85,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     const SizedBox(height: 15),
                     _buildTextField("Phone Number", LucideIcons.phone, _phoneController),
                     const SizedBox(height: 15),
-                    _buildTextField("Username", LucideIcons.atSign, _usernameController),
+                    _buildTextField("Email", LucideIcons.mail, _usernameController),
                     const SizedBox(height: 15),
                     _buildTextField("Password", LucideIcons.lock, _passwordController, isPassword: true),
                     const SizedBox(height: 15),
