@@ -9,8 +9,8 @@ import 'package:my_sejahtera_ng/features/digital_health/services/notification_se
 import 'package:flutter_dotenv/flutter_dotenv.dart'; // Add this import
 
 Future<void> main() async {
-  await dotenv.load(fileName: ".env"); // Load env file
   WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: ".env"); // Load env file
   await Supabase.initialize(
     url: dotenv.env['SUPABASE_URL'] ?? '',
     anonKey: dotenv.env['SUPABASE_ANON_KEY'] ?? '',
