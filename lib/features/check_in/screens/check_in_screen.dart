@@ -196,9 +196,7 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> with SingleTicker
                                showElegantErrorDialog(
                                  context,
                                  title: "Check-in Failed",
-                                 message: e.toString().contains("User not logged in") 
-                                  ? "You must be logged in to check in." 
-                                  : e.toString(),
+                                 message: getFriendlyErrorMessage(e),
                                  buttonText: "OK",
                                );
                              }

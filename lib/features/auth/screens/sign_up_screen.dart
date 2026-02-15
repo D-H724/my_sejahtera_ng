@@ -43,10 +43,15 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
 
         if (!mounted) return;
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Account created! Please check your email to confirm."), backgroundColor: Colors.green),
+        if (!mounted) return;
+
+        showElegantSuccessDialog(
+          context,
+          title: "Welcome Aboard!",
+          message: "Your account has been created successfully. You can now login.",
+          buttonText: "Login Now",
+          onPressed: () => Navigator.pop(context),
         );
-        Navigator.pop(context);
         
       } catch (e) {
         if (!mounted) return;
@@ -54,9 +59,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         showElegantErrorDialog(
           context,
           title: "Registration Failed",
-          message: errorMsg.contains("User already registered") 
-            ? "An account with this email already exists. Please login instead."
-            : errorMsg.replaceAll('Exception:', '').replaceAll('AuthException:', '').trim(),
+          message: getFriendlyErrorMessage(e),
           buttonText: "Try Again",
           icon: LucideIcons.alertTriangle,
         );

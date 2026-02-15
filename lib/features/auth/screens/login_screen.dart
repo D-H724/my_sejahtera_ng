@@ -74,7 +74,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         showElegantErrorDialog(
           context,
           title: "Login Failed",
-          message: errorMsg.replaceAll('Exception:', '').replaceAll('AuthException:', '').trim(),
+          message: getFriendlyErrorMessage(e),
           buttonText: "Try Again",
         );
       }

@@ -543,12 +543,12 @@ class _FoodTrackerScreenState extends ConsumerState<FoodTrackerScreen> {
            final result = await ref.read(foodTrackerProvider.notifier).analyzeFoodImage(image);
            if (result != null) _showAnalysisResult(context, ref, result);
         } catch (e) {
-           _showErrorDialog(context, "Analysis Failed: ${e.toString().replaceAll("Exception: ", "")}");
+           _showErrorDialog(context, getFriendlyErrorMessage(e));
         }
       }
     } catch (e) {
       debugPrint("Picker Error: $e");
-      _showErrorDialog(context, "Could not picking image: $e");
+      _showErrorDialog(context, getFriendlyErrorMessage(e));
     }
   }
 
@@ -576,7 +576,7 @@ class _FoodTrackerScreenState extends ConsumerState<FoodTrackerScreen> {
                     final result = await ref.read(foodTrackerProvider.notifier).analyzeFoodText(controller.text);
                     if (result != null) _showAnalysisResult(context, ref, result);
                  } catch (e) {
-                    _showErrorDialog(context, "Analysis Failed: ${e.toString().replaceAll("Exception: ", "")}");
+                    _showErrorDialog(context, getFriendlyErrorMessage(e));
                  }
               }
             }, 

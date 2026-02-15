@@ -81,3 +81,58 @@ void showElegantErrorDialog(
     ),
   );
 }
+
+void showElegantSuccessDialog(
+  BuildContext context, {
+  required String title,
+  required String message,
+  String? buttonText,
+  VoidCallback? onPressed,
+}) {
+  showElegantErrorDialog(
+    context,
+    title: title,
+    message: message,
+    buttonText: buttonText ?? "Great!",
+    onPressed: onPressed,
+    icon: LucideIcons.checkCircle,
+    iconColor: Colors.greenAccent,
+  );
+}
+
+String getFriendlyErrorMessage(Object error) {
+  final String raw = error.toString();
+  
+  if (raw.contains("AuthWeakPasswordException")) {
+    return "Your password is too weak. Please use at least 6 characters.";
+  }
+  if (raw.contains("User already registered")) {
+    return "An account with this email already exists. Please login instead.";
+  }
+  if (raw.contains("Invalid login credentials")) {
+    return "Incorrect email or password. Please try again.";
+  }
+  if (raw.contains("SocketException") || raw.contains("ClientException")) {
+    return "Network error. Please check your internet connection.";
+  }
+  
+  // Extract message from "Exception: message" or "AuthException(message: ...)"
+  if (raw.contains("message:")) {
+    final start = raw.indexOf("message:") + 8;
+    final end = raw.indexOf(",", start);
+    if (end != -1) {
+      return raw.substring(start, end).trim();
+    }
+    // Fallback if no comma
+    final endBracket = raw.indexOf(")", start);
+    if (endBracket != -1) {
+       return raw.substring(start, endBracket).trim();
+    }
+  }
+
+  // Fallback cleanup
+  var clean = raw.replaceAll("Exception:", "").replaceAll("AuthException:", "").trim();
+  if (clean.startsWith("Error:")) clean = clean.substring(6).trim();
+  
+  return clean.isNotEmpty ? clean : "Something went wrong. Please try again.";
+}
