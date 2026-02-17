@@ -65,11 +65,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (errorMsg.contains("Invalid login credentials") || errorMsg.contains("400")) {
         showElegantErrorDialog(
           context,
-          title: "Account Not Found",
-          message: "We couldn't find an account with these credentials. Please create a new account to get started.",
-          buttonText: "Create Account",
-          icon: LucideIcons.userPlus,
-          onPressed: _navigateToSignUp,
+          title: "Login Failed",
+          message: "The email or password you entered is incorrect. Please check your credentials and try again.",
+          buttonText: "Try Again",
+          icon: LucideIcons.alertCircle,
         );
       } else {
         showElegantErrorDialog(
