@@ -457,7 +457,7 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
     }
   }
 
-  void _handleBookingStep(String userText) {
+  Future<void> _handleBookingStep(String userText) async {
     final state = ref.read(appointmentProvider);
     final notifier = ref.read(appointmentProvider.notifier);
     
@@ -478,7 +478,7 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
 
     // Simulate thinking delay
     setState(() => _isLoading = true);
-    Future.delayed(const Duration(milliseconds: 1000), () {
+    Future.delayed(const Duration(milliseconds: 1000), () async {
       if (!mounted) return;
       setState(() => _isLoading = false);
       
@@ -1698,6 +1698,14 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
 
 
 
+
+  List<String> _mockClinicSearch(String query) {
+     return [
+       "Klinik $query Utama|2.5 km|RM 45|Available",
+       "Klinik $query Sentosa|5.1 km|RM 50|Limited",
+       "Hospital $query|8.2 km|RM 80|Available",
+     ];
+  }
 
   DateTime _parseTime(String timeStr) {
     try {

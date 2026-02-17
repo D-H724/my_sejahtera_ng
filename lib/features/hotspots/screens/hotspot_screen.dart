@@ -109,7 +109,7 @@ class _HotspotScreenState extends State<HotspotScreen> {
         _isLoading = false;
       });
       _fetchHotspotsFromDB(latLng);
-      });
+
       
       // Check for proximity (simulated check)
       if (_hotspots.isNotEmpty) {
