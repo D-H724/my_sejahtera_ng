@@ -766,8 +766,8 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
             _scrollToBottom();
          });
          
-         notifier.nextStep(); // -> Step 5
-      } 
+         // 3. User selected time - Check for existing User Phone (Smart Skip)
+ 
       
          // Check for existing User Phone
          final user = ref.read(userProvider);
@@ -800,37 +800,59 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
        }
        
        // --- STEP 5: PHONE INPUT ---
+       // --- STEP 5: TIME CONFIRMATION & SMART CONTACT CHECK ---
        else if (step == 5) {
-          // User just selected Time (if flow wasn't skipped) OR User entered phone manually
-          // WAIT... misuse of step logic here. 
-          // If we are IN step 5, it means we asked for Phone.
-          // The previous block (Step 4) handles the transition TO Step 5.
-          
-          // Let's refine:
-          // User sent text while in Step 5 -> They are providing phone number.
+          // User just selected Time
            if (state.bookingStep == 5) {
-                final phoneRegex = RegExp(r'^\+?[\d\-\s]{9,15}$');
-                if (phoneRegex.hasMatch(userText)) {
-                    notifier.updateTempData('phone', userText);
-                    
-                    // Check for existing Email to skip Step 6
-                    final user = ref.read(userProvider);
-                    if (user != null && user.email != null && user.email!.isNotEmpty) {
-                         notifier.updateTempData('email', user.email);
-                         notifier.confirmBooking();
-                         response = "Thanks. Confirming details:\n"
-                             "📞 Phone: $userText\n"
-                             "📧 Email: ${user.email}\n\n"
-                             "Proceed with booking?";
-                         msgType = 'summary'; 
-                         meta = {'show_change_button': true};
-                         notifier.setStep(7);
-                    } else {
-                         response = "Thanks. Lastly, what is your email address?";
-                         notifier.nextStep(); // -> Step 6
-                    }
+                // Parse Time
+                DateTime? parsedTime;
+                try {
+                   parsedTime = _parseTime(userText);
+                } catch (e) {
+                   parsedTime = DateTime.now(); // Fallback
+                }
+                
+                notifier.updateTempData('selectedTime', parsedTime);
+                
+                // SMART CHECK: Auto-fill contact details
+                final user = ref.read(userProvider);
+                if (user != null && user.phone.isNotEmpty && user.phone.length > 8) {
+                     notifier.updateTempData('phone', user.phone);
+                     
+                     if (user.email != null && user.email!.isNotEmpty) {
+                          notifier.updateTempData('email', user.email);
+                          notifier.confirmBooking();
+                          
+                          response = "Perfect. I have your details:\n"
+                               "📞 Phone: ${user.phone}\n"
+                               "📧 Email: ${user.email}\n\n"
+                               "Please review the details below.";
+                          
+                          msgType = 'summary'; 
+                          meta = {'show_change_button': true};
+                          notifier.setStep(7); // Jump to Confirmation
+                     } else {
+                          response = "I have your phone number (${user.phone}). \n\nWhat is your email address?";
+                          notifier.setStep(7); // Jump to Confirmation/Email logic in Step 7?
+                          // Wait, Step 7 expects "Yes" or Email?
+                          // Step 7 handles: "User just entered Email OR User confirmed Yes"
+                          // If we jump to Step 7, next input is processed by Step 7.
+                          // But Step 7 logic says: if "yes"... else if email regex...
+                          // So yes, asking for email and setting step to 7 is risky if Step 6 handles Email?
+                          
+                          // Let's check Step 6. Step 6 handles Phone Input -> nextStep() -> Step 7.
+                          // So Step 7 handles Email Input?
+                          // No, Step 6 says: "Thanks. Lastly, what is your email address? notifier.nextStep(); // -> Step 7"
+                          // So Step 7 handles EMAIL input?
+                          // Step 7 code: "User just enterd Email OR User confirmed Yes"
+                          // If `userText` is Email regex -> updates email -> confirmBooking.
+                          
+                          // So yes, if we ask for email, we should go to Step 7.
+                     }
                 } else {
-                    response = "Invalid phone number format. Please try again.";
+                     // No phone, ask for phone
+                     response = "Time selected ($userText). \n\nWhat is your phone number for contact?";
+                     notifier.nextStep(); // -> Step 6 (Phone Input)
                 }
            }
        }
