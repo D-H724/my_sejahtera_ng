@@ -48,13 +48,14 @@ class UserSession {
     String? allergies,
     String? emergencyContact,
     String? medicalCondition,
+    String? phone,
   }) {
     return UserSession(
       id: id,
       username: username,
       fullName: fullName,
       icNumber: icNumber,
-      phone: phone,
+      phone: phone ?? this.phone,
       bloodType: bloodType ?? this.bloodType,
       allergies: allergies ?? this.allergies,
       emergencyContact: emergencyContact ?? this.emergencyContact,
@@ -203,6 +204,18 @@ class UserNotifier extends Notifier<UserSession?> {
       );
     } catch (e) {
       debugPrint("Update Error: $e");
+      rethrow;
+    }
+  }
+
+  Future<void> updateContactInfo(String newPhone) async {
+    if (state == null) return;
+
+    try {
+      await _supabase.from('profiles').update({'phone': newPhone}).eq('id', state!.id);
+      state = state!.copyWith(phone: newPhone); // Update local state
+    } catch (e) {
+      debugPrint("Update Phone Error: $e");
       rethrow;
     }
   }

@@ -309,6 +309,66 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
       return;
     }
 
+    // 2.5 Feature Shortcuts (Direct Action Interception)
+    final lowerText = text.toLowerCase();
+    
+    // Feature: Nearest Clinic / Find Clinic
+    if (lowerText.contains("nearest clinic") || lowerText.contains("find clinic") || lowerText.contains("nearby clinic")) {
+       setState(() => _isLoading = true);
+       Future.delayed(const Duration(milliseconds: 800), () {
+          if (!mounted) return;
+          _handleGPSLocationRequest(ref.read(appointmentProvider.notifier));
+       });
+       return;
+    }
+
+    // Feature: Booking / Dentist / Specialist
+    if (lowerText.contains("book") || lowerText.contains("dentist") || lowerText.contains("specialist") || lowerText.contains("doctor")) {
+       ref.read(appointmentProvider.notifier).startBooking();
+       _handleBookingStep(text);
+       return;
+    }
+
+    // Feature: Vaccine / Certificate
+    if (lowerText.contains("vaccine") || lowerText.contains("certificate") || lowerText.contains("digital cert")) {
+       const response = "Opening your Digital Vaccine Certificate... 💉";
+       ref.read(chatProvider.notifier).addMessage(ChatMessage(
+          text: response,
+          isUser: false,
+          type: 'link_action',
+          metaData: {'label': 'View Certificate', 'color_value': Colors.amber.value, 'target': 'vaccine'},
+       ));
+       _speak(response);
+       // Optional: Auto-navigate after delay
+       return;
+    }
+
+    // Feature: Hotspots / Risk
+    if (lowerText.contains("hotspot") || lowerText.contains("risk map") || lowerText.contains("cases near me")) {
+       const response = "Checking the latest hotspot data for you... 🗺️";
+       ref.read(chatProvider.notifier).addMessage(ChatMessage(
+          text: response,
+          isUser: false,
+          type: 'link_action',
+          metaData: {'label': 'Open Hotspot Map', 'color_value': Colors.redAccent.value, 'target': 'hotspot'},
+       ));
+       _speak(response);
+       return;
+    }
+
+    // Feature: Check-In / Scan
+    if (lowerText.contains("check-in") || lowerText.contains("scan") || lowerText.contains("my sejahtera")) {
+       const response = "Launching the MySejahtera Check-In Scanner... 📷";
+       ref.read(chatProvider.notifier).addMessage(ChatMessage(
+          text: response,
+          isUser: false,
+          type: 'link_action',
+          metaData: {'label': 'Open Scanner', 'color_value': Colors.blueAccent.value, 'target': 'check_in'},
+       ));
+       _speak(response);
+       return;
+    }
+
     if (_useSimulatedAI) {
       _handleSimulatedResponse(text);
       return;
@@ -709,21 +769,74 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
          notifier.nextStep(); // -> Step 5
       } 
       
-      // --- STEP 5: PHONE INPUT ---
-      else if (step == 5) {
-         // User just selected Time
-         if (userText.contains("AM") || userText.contains("PM")) {
-             final parsedTime = _parseTime(userText); // Parse the time string
-             notifier.updateTempData('selectedTime', parsedTime); 
-             response = "Time locked ($userText). \n\nWhat is your phone number for contact?";
-             notifier.nextStep(); // -> Step 6
+         // Check for existing User Phone
+         final user = ref.read(userProvider);
+         if (user != null && user.phone.isNotEmpty && user.phone.length > 8) {
+             notifier.updateTempData('phone', user.phone);
+             
+             // Check for existing User Email
+             if (user.email != null && user.email!.isNotEmpty) {
+                 notifier.updateTempData('email', user.email);
+                 notifier.confirmBooking(); // Skip directly to confirmation
+                 
+                 response = "Perfect. I have your details:\n"
+                     "📞 Phone: ${user.phone}\n"
+                     "📧 Email: ${user.email}\n\n"
+                     "Ready to confirm appointment for **${state.tempBookingData['appointmentType']}** at **$userText**?";
+                 
+                 msgType = 'summary'; // Custom Summary type needs to handle "Change Details" action
+                 meta = {'show_change_button': true};
+                 
+                 notifier.setStep(7); // Jump to Confirmation
+             } else {
+                 // Ask for Email only (Skip Phone)
+                 response = "I have your phone number (${user.phone}). \n\nWhat is your email address for confirmation?";
+                 notifier.setStep(6); // Jump to Email Input
+             }
          } else {
-             response = "Please tap a time slot above to proceed.";
+             response = "Time locked ($userText). \n\nWhat is your phone number for contact?";
+             notifier.nextStep(); // -> Step 5
          }
-      }
-
-      // --- STEP 6: EMAIL INPUT ---
-      else if (step == 6) {
+       }
+       
+       // --- STEP 5: PHONE INPUT ---
+       else if (step == 5) {
+          // User just selected Time (if flow wasn't skipped) OR User entered phone manually
+          // WAIT... misuse of step logic here. 
+          // If we are IN step 5, it means we asked for Phone.
+          // The previous block (Step 4) handles the transition TO Step 5.
+          
+          // Let's refine:
+          // User sent text while in Step 5 -> They are providing phone number.
+           if (state.bookingStep == 5) {
+                final phoneRegex = RegExp(r'^\+?[\d\-\s]{9,15}$');
+                if (phoneRegex.hasMatch(userText)) {
+                    notifier.updateTempData('phone', userText);
+                    
+                    // Check for existing Email to skip Step 6
+                    final user = ref.read(userProvider);
+                    if (user != null && user.email != null && user.email!.isNotEmpty) {
+                         notifier.updateTempData('email', user.email);
+                         notifier.confirmBooking();
+                         response = "Thanks. Confirming details:\n"
+                             "📞 Phone: $userText\n"
+                             "📧 Email: ${user.email}\n\n"
+                             "Proceed with booking?";
+                         msgType = 'summary'; 
+                         meta = {'show_change_button': true};
+                         notifier.setStep(7);
+                    } else {
+                         response = "Thanks. Lastly, what is your email address?";
+                         notifier.nextStep(); // -> Step 6
+                    }
+                } else {
+                    response = "Invalid phone number format. Please try again.";
+                }
+           }
+       }
+       
+       // --- STEP 6: EMAIL INPUT ---
+       else if (step == 6) {
         // User just entered Phone - VALIDATE IT
         final phoneRegex = RegExp(r'^\+?[\d\-\s]{9,15}$'); // Basic phone validation
         if (phoneRegex.hasMatch(userText)) {
@@ -738,16 +851,30 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
 
       // --- STEP 7: CONFIRMATION ---
       else if (step == 7) {
-        // User just entered Email - VALIDATE IT
-        final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-        if (emailRegex.hasMatch(userText)) {
-            notifier.updateTempData('email', userText);
-            notifier.confirmBooking();
-            response = "All done! Your appointment for **${state.tempBookingData['appointmentType']}** at **${state.tempBookingData['clinicName']}** is confirmed.";
-            msgType = 'summary';
-        } else {
-            response = "That email seems invalid. Please enter a valid email address (e.g. name@result.com).";
-            // Don't advance step
+        // User just enterd Email OR User confirmed "Yes"
+        if (state.bookingStep == 7) {
+            // Check if this is a confirmation "Yes" or "Proceed"
+            if (userText.toLowerCase().contains("yes") || userText.toLowerCase().contains("confirm") || userText.toLowerCase().contains("proceed") || userText.toLowerCase().contains("ok")) {
+                response = "All done! Your appointment for **${state.tempBookingData['appointmentType']}** at **${state.tempBookingData['clinicName']}** is confirmed.";
+                msgType = 'summary'; // Final Summary
+                // Reset flow after confirmation? Usually handled by UI or provider
+                ref.read(appointmentProvider.notifier).completeBooking(); 
+            } else if (userText.toLowerCase().contains("change")) {
+                // User wants to change details
+                response = "Okay, let's enter your details manually. What is your phone number?";
+                notifier.setStep(5); // Go back to Phone input
+            } else {
+                 // Might be entering email manually if came from Step 6
+                 final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                 if (emailRegex.hasMatch(userText)) {
+                    notifier.updateTempData('email', userText);
+                    notifier.confirmBooking();
+                    response = "Perfect. Appointment confirmed for **${state.tempBookingData['appointmentType']}**.\n\nWe sent a copy to **$userText**.";
+                    msgType = 'summary';
+                 } else {
+                    response = "Please type 'Yes' to confirm, or 'Change' to update details.";
+                 }
+            }
         }
       }
 
@@ -807,6 +934,7 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
 
     try {
       final apiKey = dotenv.env['GROQ_API_KEY'] ?? '';
+      debugPrint("DEBUG: API Key used: ${apiKey.length > 5 ? apiKey.substring(0, 5) + '...' : 'INVALID'}");
       if (apiKey.isEmpty || apiKey.contains("PLACEHOLDER")) {
          if (mounted) setState(() => _useSimulatedAI = true);
          return "Please set your Groq API Key in the .env file to use the AI.";
@@ -1330,6 +1458,10 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
                 if (msg.type == 'clinic_list' && msg.metaData != null)
                   _buildClinicPicker(msg.metaData!['clinics'] as List<dynamic>),
 
+                // Render Pre-Confirmation Summary
+                if (msg.type == 'summary')
+                   _buildPreConfirmationSummary(msg),
+
                 // Render Time Slot Picker
                 if (msg.type == 'time_slots' && msg.metaData != null)
                   _buildTimeSlotPicker(msg.metaData!['slots'] as List<dynamic>),
@@ -1640,6 +1772,78 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
         },
       ),
     );
+  }
+
+  Widget _buildPreConfirmationSummary(ChatMessage msg) {
+    final state = ref.watch(appointmentProvider);
+    final showChangeButton = msg.metaData?['show_change_button'] == true;
+
+    return Container(
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(LucideIcons.clipboardCheck, color: showChangeButton ? Colors.amber : Colors.greenAccent, size: 24),
+              const SizedBox(width: 10),
+              Text(
+                showChangeButton ? "Review Details" : "Booking Confirmed",
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+            ],
+          ),
+          const SizedBox(height: 15),
+          if (state.tempBookingData['appointmentType'] != null)
+             _buildSummaryRow(LucideIcons.calendar, "Type", state.tempBookingData['appointmentType']),
+          if (state.tempBookingData['clinicName'] != null)
+             _buildSummaryRow(LucideIcons.mapPin, "Clinic", state.tempBookingData['clinicName']),
+          if (state.tempBookingData['selectedTime'] != null)
+             _buildSummaryRow(LucideIcons.clock, "Time", DateFormat('dd MMM, hh:mm a').format(state.tempBookingData['selectedTime'])),
+          if (state.tempBookingData['phone'] != null)
+             _buildSummaryRow(LucideIcons.phone, "Phone", state.tempBookingData['phone']),
+          if (state.tempBookingData['email'] != null)
+             _buildSummaryRow(LucideIcons.mail, "Email", state.tempBookingData['email']),
+          
+          if (showChangeButton) ...[
+             const SizedBox(height: 20),
+             Row(
+               children: [
+                 Expanded(
+                   child: OutlinedButton(
+                     onPressed: () => _sendMessage("Change Details"),
+                     style: OutlinedButton.styleFrom(
+                       side: const BorderSide(color: Colors.white30),
+                       foregroundColor: Colors.white,
+                       padding: const EdgeInsets.symmetric(vertical: 12),
+                     ),
+                     child: const Text("Change"),
+                   ),
+                 ),
+                 const SizedBox(width: 10),
+                 Expanded(
+                   child: ElevatedButton(
+                     onPressed: () => _sendMessage("Yes, Confirm"),
+                     style: ElevatedButton.styleFrom(
+                       backgroundColor: Colors.greenAccent,
+                       foregroundColor: Colors.black,
+                       padding: const EdgeInsets.symmetric(vertical: 12),
+                     ),
+                     child: const Text("Confirm"),
+                   ),
+                 ),
+               ],
+             )
+          ]
+        ],
+      ),
+    ).animate().fadeIn().slideY();
   }
 
   Widget _buildAppointmentSummary() {

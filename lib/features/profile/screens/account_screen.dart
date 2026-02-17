@@ -178,7 +178,7 @@ class AccountScreen extends ConsumerWidget {
                             _buildDivider(),
                             _buildProfileItem("IC / Passport", user.icNumber),
                             _buildDivider(),
-                            _buildProfileItem("Phone", user.phone),
+                            _buildProfileItem("Phone", user.phone, onEdit: () => _showEditPhoneDialog(context, ref, user.phone)),
                             _buildDivider(),
                             _buildProfileItem("Status", "Verified Account", isVerified: true),
                           ],
@@ -211,7 +211,7 @@ class AccountScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildProfileItem(String label, String value, {bool isVerified = false}) {
+  Widget _buildProfileItem(String label, String value, {bool isVerified = false, VoidCallback? onEdit}) {
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Row(
@@ -227,6 +227,13 @@ class AccountScreen extends ConsumerWidget {
                   const SizedBox(width: 5),
                   const Icon(LucideIcons.checkCircle, size: 16, color: AppTheme.accentTeal),
                 ],
+                if (onEdit != null) ...[
+                  const SizedBox(width: 10),
+                  GestureDetector(
+                    onTap: onEdit,
+                    child: const Icon(LucideIcons.edit3, size: 16, color: Colors.blueAccent),
+                  ),
+                ],
               ],
             ),
           ),
@@ -237,5 +244,47 @@ class AccountScreen extends ConsumerWidget {
 
   Widget _buildDivider() {
     return const Divider(height: 1, color: Colors.white10);
+  }
+
+  void _showEditPhoneDialog(BuildContext context, WidgetRef ref, String currentPhone) {
+    final controller = TextEditingController(text: currentPhone);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E1E),
+        title: const Text("Edit Phone Number", style: TextStyle(color: Colors.white)),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.phone,
+          style: const TextStyle(color: Colors.white),
+          decoration: const InputDecoration(
+            hintText: "Enter new phone number",
+            hintStyle: TextStyle(color: Colors.white38),
+            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white38)),
+            focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.blueAccent)),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel", style: TextStyle(color: Colors.white54)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final newPhone = controller.text.trim();
+              if (newPhone.isNotEmpty) {
+                 try {
+                   await ref.read(userProvider.notifier).updateContactInfo(newPhone);
+                   if (context.mounted) Navigator.pop(context);
+                 } catch (e) {
+                   // Handle error
+                 }
+              }
+            },
+            child: const Text("Save"),
+          ),
+        ],
+      ),
+    );
   }
 }
