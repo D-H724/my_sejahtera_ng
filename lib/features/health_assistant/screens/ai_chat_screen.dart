@@ -880,7 +880,7 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
                 response = "All done! Your appointment for **${state.tempBookingData['appointmentType']}** at **${state.tempBookingData['clinicName']}** is confirmed.";
                 msgType = 'summary'; // Final Summary
                 // Reset flow after confirmation? Usually handled by UI or provider
-                ref.read(appointmentProvider.notifier).completeBooking(); 
+                ref.read(appointmentProvider.notifier).confirmBooking();
             } else if (userText.toLowerCase().contains("change")) {
                 // User wants to change details
                 response = "Okay, let's enter your details manually. What is your phone number?";
