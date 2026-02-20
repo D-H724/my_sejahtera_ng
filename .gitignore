@@ -46,4 +46,4 @@ app.*.map.json
 
 # Java JDK
 .jdk/
-\n.env
+.env

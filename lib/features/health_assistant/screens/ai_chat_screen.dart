@@ -52,43 +52,99 @@ class ChatMessage {
   });
 }
 
+// Chat Session Model
+class ChatSessionModel {
+  final String id;
+  final String title;
+  final DateTime createdAt;
+  
+  ChatSessionModel({required this.id, required this.title, required this.createdAt});
+}
+
 // State Notifier
 class ChatNotifier extends Notifier<List<ChatMessage>> {
+  String? _currentSessionId;
+  String? get currentSessionId => _currentSessionId;
+
   @override
   List<ChatMessage> build() {
-    _loadHistory();
+    // Start with a new chat by default
     return [
       ChatMessage(
-        text: 'Hello! I am your virtual assistant , powered by Llama 3 on Groq. I can help you check in, find vaccines, or answer health questions.',
+        text: 'Hello! I am your virtual assistant. How can I help you today?',
         isUser: false,
       ),
     ];
   }
 
-  Future<void> _loadHistory() async {
-    final supabase = Supabase.instance.client;
-    final user = supabase.auth.currentUser;
-    if (user == null) return;
+  Future<void> startNewSession() async {
+    _currentSessionId = null;
+    state = [
+       ChatMessage(
+        text: 'Hello! I am your virtual assistant. How can I help you today?',
+        isUser: false,
+      ),
+    ];
+  }
 
+  Future<void> loadSession(String sessionId) async {
+    _currentSessionId = sessionId;
+    final supabase = Supabase.instance.client;
+    
     try {
       final data = await supabase
           .from('chat_history')
           .select()
-          .eq('user_id', user.id)
+          .eq('session_id', sessionId)
           .order('created_at');
 
       if (data.isNotEmpty) {
-        final messages = (data as List).map((map) => ChatMessage(
+        state = (data as List).map((map) => ChatMessage(
           text: map['message'] ?? '',
           isUser: map['is_user'] ?? true,
           isError: map['is_error'] ?? false,
           type: map['type'],
           metaData: map['meta_data'],
         )).toList();
-        state = messages;
+      } else {
+        state = [];
       }
     } catch (e) {
-      debugPrint("Error loading chat history: $e");
+      debugPrint("Error loading session: $e");
+    }
+  }
+
+  Future<List<ChatSessionModel>> fetchHistory() async {
+     final supabase = Supabase.instance.client;
+     final user = supabase.auth.currentUser;
+     if (user == null) return [];
+
+     try {
+       final data = await supabase
+           .from('chat_sessions')
+           .select()
+           .eq('user_id', user.id)
+           .order('created_at', ascending: false);
+           
+       return (data as List).map((map) => ChatSessionModel(
+         id: map['id'],
+         title: map['title'] ?? 'New Chat',
+         createdAt: DateTime.parse(map['created_at']),
+       )).toList();
+     } catch (e) {
+       debugPrint("Error fetching history: $e");
+       return [];
+     }
+  }
+  
+  Future<void> deleteSession(String sessionId) async {
+    try {
+      await Supabase.instance.client.from('chat_sessions').delete().eq('id', sessionId);
+      if (_currentSessionId == sessionId) {
+        startNewSession();
+      }
+    } catch (e) {
+      debugPrint("Error deleting session: $e");
     }
   }
 
@@ -97,19 +153,33 @@ class ChatNotifier extends Notifier<List<ChatMessage>> {
     
     final supabase = Supabase.instance.client;
     final user = supabase.auth.currentUser;
-    if (user != null) {
-      try {
-        await supabase.from('chat_history').insert({
-          'user_id': user.id,
-          'message': message.text,
-          'is_user': message.isUser,
-          'is_error': message.isError,
-          'type': message.type,
-          'meta_data': message.metaData,
-        });
-      } catch (e) {
-        debugPrint("Error saving chat: $e");
-      }
+    if (user == null) return;
+
+    try {
+       // Create session if not exists
+       if (_currentSessionId == null) {
+         // Generate title from first user message
+         String title = message.text;
+         if (title.length > 30) title = "${title.substring(0, 30)}...";
+         
+         final session = await supabase.from('chat_sessions').insert({
+           'user_id': user.id,
+           'title': title.isNotEmpty ? title : 'New Chat',
+         }).select().single();
+         _currentSessionId = session['id'];
+       }
+
+      await supabase.from('chat_history').insert({
+        'user_id': user.id,
+        'session_id': _currentSessionId,
+        'message': message.text,
+        'is_user': message.isUser,
+        'is_error': message.isError,
+        'type': message.type,
+        'meta_data': message.metaData,
+      });
+    } catch (e) {
+      debugPrint("Error saving chat: $e");
     }
   }
 }
@@ -130,7 +200,7 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
   // Voice
   late FlutterTts _flutterTts;
   bool _isSpeaking = false;
-  bool _isMuted = false; // Voice enabled by default
+  bool _isMuted = true; // Voice OFF by default as requested
 
   bool _isLoading = false;
   final bool _isInitializing = false;
@@ -763,40 +833,9 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
               metaData: {'slots': availableSlots},
             ));
             _speak(finalResponse);
+            notifier.nextStep(); // -> Step 5
             _scrollToBottom();
          });
-         
-         // 3. User selected time - Check for existing User Phone (Smart Skip)
- 
-      
-         // Check for existing User Phone
-         final user = ref.read(userProvider);
-         if (user != null && user.phone.isNotEmpty && user.phone.length > 8) {
-             notifier.updateTempData('phone', user.phone);
-             
-             // Check for existing User Email
-             if (user.email != null && user.email!.isNotEmpty) {
-                 notifier.updateTempData('email', user.email);
-                 notifier.confirmBooking(); // Skip directly to confirmation
-                 
-                 response = "Perfect. I have your details:\n"
-                     "📞 Phone: ${user.phone}\n"
-                     "📧 Email: ${user.email}\n\n"
-                     "Ready to confirm appointment for **${state.tempBookingData['appointmentType']}** at **$userText**?";
-                 
-                 msgType = 'summary'; // Custom Summary type needs to handle "Change Details" action
-                 meta = {'show_change_button': true};
-                 
-                 notifier.setStep(7); // Jump to Confirmation
-             } else {
-                 // Ask for Email only (Skip Phone)
-                 response = "I have your phone number (${user.phone}). \n\nWhat is your email address for confirmation?";
-                 notifier.setStep(6); // Jump to Email Input
-             }
-         } else {
-             response = "Time locked ($userText). \n\nWhat is your phone number for contact?";
-             notifier.nextStep(); // -> Step 5
-         }
        }
        
        // --- STEP 5: PHONE INPUT ---
@@ -816,43 +855,47 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
                 
                 // SMART CHECK: Auto-fill contact details
                 final user = ref.read(userProvider);
-                if (user != null && user.phone.isNotEmpty && user.phone.length > 8) {
-                     notifier.updateTempData('phone', user.phone);
-                     
-                     if (user.email != null && user.email!.isNotEmpty) {
-                          notifier.updateTempData('email', user.email);
-                          notifier.confirmBooking();
-                          
-                          response = "Perfect. I have your details:\n"
-                               "📞 Phone: ${user.phone}\n"
-                               "📧 Email: ${user.email}\n\n"
-                               "Please review the details below.";
-                          
-                          msgType = 'summary'; 
-                          meta = {'show_change_button': true};
-                          notifier.setStep(7); // Jump to Confirmation
-                     } else {
-                          response = "I have your phone number (${user.phone}). \n\nWhat is your email address?";
-                          notifier.setStep(7); // Jump to Confirmation/Email logic in Step 7?
-                          // Wait, Step 7 expects "Yes" or Email?
-                          // Step 7 handles: "User just entered Email OR User confirmed Yes"
-                          // If we jump to Step 7, next input is processed by Step 7.
-                          // But Step 7 logic says: if "yes"... else if email regex...
-                          // So yes, asking for email and setting step to 7 is risky if Step 6 handles Email?
-                          
-                          // Let's check Step 6. Step 6 handles Phone Input -> nextStep() -> Step 7.
-                          // So Step 7 handles Email Input?
-                          // No, Step 6 says: "Thanks. Lastly, what is your email address? notifier.nextStep(); // -> Step 7"
-                          // So Step 7 handles EMAIL input?
-                          // Step 7 code: "User just enterd Email OR User confirmed Yes"
-                          // If `userText` is Email regex -> updates email -> confirmBooking.
-                          
-                          // So yes, if we ask for email, we should go to Step 7.
-                     }
+                
+                // Fallback for email if provider update hasn't propagated or failed
+                final authEmail = Supabase.instance.client.auth.currentUser?.email;
+                final email = (user?.email != null && user!.email!.isNotEmpty) ? user.email : authEmail;
+                final phone = (user?.phone != null && user!.phone.isNotEmpty && user.phone.length > 8) ? user.phone : null;
+
+                if (phone != null && email != null) {
+                      notifier.updateTempData('phone', phone);
+                      notifier.updateTempData('email', email);
+                      
+                      // Show Summary with BOTH details
+                      response = "I have your contact details:\n"
+                           "📞 Phone: $phone\n"
+                           "📧 Email: $email\n\n"
+                           "Is this correct?";
+                      
+                      msgType = 'summary'; 
+                      meta = {'show_change_button': true};
+                      notifier.setStep(7); // Jump to Confirmation
+                } else if (phone != null) {
+                      // Have phone, missing email
+                      notifier.updateTempData('phone', phone);
+                       if (email != null) {
+                           // Logic above should have caught this, but just in case
+                           notifier.updateTempData('email', email);
+                           response = "Contact details:\nPhone: $phone\nEmail: $email\n\nConfirm?";
+                           msgType = 'summary'; 
+                           meta = {'show_change_button': true};
+                        notifier.setStep(7);
+                       } else {
+                           response = "I have your phone ($phone). What is your email address?";
+                           notifier.nextStep(); // -> Step 6 (Email)
+                       }
                 } else {
-                     // No phone, ask for phone
-                     response = "Time selected ($userText). \n\nWhat is your phone number for contact?";
-                     notifier.nextStep(); // -> Step 6 (Phone Input)
+                     response = "Time selected ($userText). \n\nWhat is your phone number?";
+                     notifier.nextStep(); // -> Step 6 (Phone - wait, Step 6 in code might be labelled Email? Let's check next block)
+                     // Code below: Step 6 is... "Email Input" ?? No, let's check the view...
+                     // Ref: Line 839 "else if (step == 6) { // User just entered Phone - VALIDATE IT"
+                     // So Step 6 IS validation of Phone.
+                     // So sending to Step 6 means "We are currently IN Step 5, checking time. The NEXT input will be processed by Step 6".
+                     // Step 6 processes PHONE input. Correct.
                 }
            }
        }
@@ -884,7 +927,7 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
             } else if (userText.toLowerCase().contains("change")) {
                 // User wants to change details
                 response = "Okay, let's enter your details manually. What is your phone number?";
-                notifier.setStep(5); // Go back to Phone input
+                notifier.setStep(6); // Go back to Phone input
             } else {
                  // Might be entering email manually if came from Step 6
                  final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
@@ -1098,66 +1141,32 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
       // 2. Get Position
       Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
       
-      // 3. Expanded Mock Real Clinic Data (Malaysia)
-      final allClinics = [
-        // Kuala Lumpur / Selangor
-        {"name": "Klinik Kesihatan Kuala Lumpur", "lat": 3.1729, "lng": 101.7018},
-        {"name": "Hospital Kuala Lumpur", "lat": 3.1716, "lng": 101.7029},
-        {"name": "Gleneagles Kuala Lumpur", "lat": 3.1580, "lng": 101.7346},
-        {"name": "Prince Court Medical Centre", "lat": 3.1492, "lng": 101.7212},
-        {"name": "Sunway Medical Centre", "lat": 3.0682, "lng": 101.6038},
-        {"name": "Klinik Kesihatan Shah Alam", "lat": 3.0738, "lng": 101.5183},
-        {"name": "Klinik Kesihatan Klang", "lat": 3.0449, "lng": 101.4456},
-
-        // Johor Bahru
-        {"name": "Klinik Kesihatan Johor Bahru", "lat": 1.4625, "lng": 103.7578}, 
-        {"name": "Hospital Sultanah Aminah", "lat": 1.4584, "lng": 103.7466},
-        {"name": "Gleneagles Medini Johor", "lat": 1.4333, "lng": 103.6333}, 
-        {"name": "KPJ Johor Specialist", "lat": 1.4844, "lng": 103.7432},
-        {"name": "Klinik Kesihatan Tebrau", "lat": 1.5333, "lng": 103.7667},
-        
-        // Penang
-        {"name": "Hospital Pulau Pinang", "lat": 5.4168, "lng": 100.3115},
-        {"name": "Gleneagles Penang", "lat": 5.4312, "lng": 100.3168},
-        {"name": "Island Hospital", "lat": 5.4219, "lng": 100.3142},
-        {"name": "Klinik Kesihatan Bayan Baru", "lat": 5.3242, "lng": 100.2863},
-
-        // East Coast (Kuantan, Kota Bharu)
-        {"name": "Hospital Tengku Ampuan Afzan", "lat": 3.8126, "lng": 103.3256},
-        {"name": "Klinik Kesihatan Kuantan", "lat": 3.8077, "lng": 103.3260},
-        {"name": "Hospital Raja Perempuan Zainab II", "lat": 6.1254, "lng": 102.2386},
-
-        // Sabah / Sarawak
-        {"name": "Hospital Queen Elizabeth", "lat": 5.9575, "lng": 116.0694},
-        {"name": "Klinik Kesihatan Luyang", "lat": 5.9456, "lng": 116.0888},
-        {"name": "Hospital Umum Sarawak", "lat": 1.5430, "lng": 110.3415},
-        {"name": "Klinik Kesihatan Kuching", "lat": 1.5497, "lng": 110.3639},
-        
-        // Perak / Ipoh
-        {"name": "Hospital Raja Permaisuri Bainun", "lat": 4.6043, "lng": 101.0968},
-        {"name": "Klinik Kesihatan Greentown", "lat": 4.6006, "lng": 101.0924},
-
-        // Melaka
-        {"name": "Hospital Melaka", "lat": 2.2173, "lng": 102.2614},
-        {"name": "Klinik Kesihatan Peringgit", "lat": 2.2201, "lng": 102.2536},
-      ];
+      // 3. Fetch Real Clinic Data from Supabase via Notifier
+      final allClinics = await notifier.fetchClinics();
 
       // 4. Calculate Distance & Filter
       List<Map<String, dynamic>> nearbyClinics = [];
       
       for (var clinic in allClinics) {
+        // Supabase stores as 'latitude' and 'longitude' strings or doubles
+        double cLat = double.tryParse(clinic['latitude']?.toString() ?? '0') ?? 0.0;
+        double cLng = double.tryParse(clinic['longitude']?.toString() ?? '0') ?? 0.0;
+        
+        // Skip invalid coordinates
+        if (cLat == 0 && cLng == 0) continue;
+
         double distMeters = Geolocator.distanceBetween(
           position.latitude, 
           position.longitude, 
-          clinic['lat'] as double, 
-          clinic['lng'] as double
+          cLat, 
+          cLng
         );
         double distKm = distMeters / 1000;
         
         // Only show clinics within 50km
         // if (distKm <= 50) { // REMOVED LIMIT to always find something
           nearbyClinics.add({
-            "name": clinic['name'],
+            "name": clinic['name'] ?? clinic['clinic_name'] ?? 'Unknown Clinic',
             "distVal": distKm,
             "dist": "${distKm.toStringAsFixed(1)} km"
           });
@@ -1178,8 +1187,9 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
         responseText = "Found ${topClinics.length} clinics. The closest is **${topClinics.first['name']}** (${topClinics.first['dist']}).\n\nPlease select one:";
       }
 
-      // Format for UI (Name|Distance)
-      final clinicStrings = topClinics.map((c) => "${c['name']}|${c['dist']}").toList();
+      // Format for UI (Name|Distance|Price|Slots)
+      // Provide mock price and slots for the UI array
+      final clinicStrings = topClinics.map((c) => "${c['name']}|${c['dist']}|RM 50|Available").toList();
 
       if (mounted) {
         setState(() => _isLoading = false);
@@ -1230,6 +1240,7 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
 
     return Scaffold(
       backgroundColor: Colors.black, // Dark base
+      drawer: _buildHistoryDrawer(),
       body: Stack(
         children: [
           // 1. Futuristic Background
@@ -1276,16 +1287,19 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: Row(
         children: [
-          GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white24),
+          // 1. Menu Button (Leading) - Opens Drawer
+          Builder(
+            builder: (context) => GestureDetector(
+              onTap: () => Scaffold.of(context).openDrawer(),
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white24),
+                ),
+                child: const Icon(LucideIcons.menu, color: Colors.white, size: 20),
               ),
-              child: const Icon(LucideIcons.arrowLeft, color: Colors.white, size: 20),
             ),
           ),
           const SizedBox(width: 15),
@@ -1331,6 +1345,26 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
             ],
           ),
           const Spacer(),
+          
+          // 3. New Chat Action
+          GestureDetector(
+             onTap: () {
+               ref.read(chatProvider.notifier).startNewSession();
+               ScaffoldMessenger.of(context).showSnackBar(
+                 const SnackBar(content: Text("Started a new chat session"), duration: Duration(seconds: 1)),
+               );
+             },
+             child: Container(
+               padding: const EdgeInsets.all(8),
+               decoration: BoxDecoration(
+                 color: Colors.white.withOpacity(0.1),
+                 shape: BoxShape.circle,
+               ),
+               child: const Icon(LucideIcons.plus, color: Colors.white, size: 20),
+             ),
+          ),
+          const SizedBox(width: 10),
+
           // Audio Settings (Mute Toggle)
           GestureDetector(
             onTap: () async {
@@ -1358,6 +1392,21 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
                 size: 20,
               ),
             ).animate(target: _isSpeaking && !_isMuted ? 1 : 0).scale(begin: const Offset(1,1), end: const Offset(1.2,1.2)),
+          ),
+          
+          const SizedBox(width: 10),
+
+          // 5. Close Button (Back)
+          GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.redAccent.withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(LucideIcons.x, color: Colors.redAccent, size: 20),
+            ),
           ),
         ],
       ),
@@ -2104,6 +2153,60 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
       return _buildActionChip(label, color, destination);
     }
     return const SizedBox.shrink();
+  }
+  Widget _buildHistoryDrawer() {
+    return Drawer(
+      backgroundColor: const Color(0xFF0F172A),
+      child: SafeArea(
+        child: Column(
+          children: [
+             Padding(
+               padding: const EdgeInsets.all(16.0),
+               child: Text("Chat History", style: GoogleFonts.outfit(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+             ),
+             const Divider(color: Colors.white24),
+             Expanded(
+               child: FutureBuilder<List<ChatSessionModel>>(
+                 future: ref.read(chatProvider.notifier).fetchHistory(),
+                 builder: (context, snapshot) {
+                   if (snapshot.connectionState == ConnectionState.waiting) {
+                     return const Center(child: CircularProgressIndicator());
+                   }
+                   if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                     return const Center(child: Text("No history yet", style: TextStyle(color: Colors.white54)));
+                   }
+                   
+                   final sessions = snapshot.data!;
+                   return ListView.builder(
+                     itemCount: sessions.length,
+                     itemBuilder: (context, index) {
+                       final session = sessions[index];
+                       final isCurrent = session.id == ref.read(chatProvider.notifier).currentSessionId;
+                       
+                       return ListTile(
+                         title: Text(session.title, style: TextStyle(color: isCurrent ? Colors.blueAccent : Colors.white70), maxLines: 1, overflow: TextOverflow.ellipsis),
+                         subtitle: Text(DateFormat.MMMd().format(session.createdAt), style: const TextStyle(color: Colors.white30, fontSize: 10)),
+                         onTap: () {
+                           ref.read(chatProvider.notifier).loadSession(session.id);
+                           Navigator.pop(context); // Close drawer
+                         },
+                         trailing: IconButton(
+                           icon: const Icon(LucideIcons.trash2, color: Colors.white24, size: 16),
+                           onPressed: () async {
+                              await ref.read(chatProvider.notifier).deleteSession(session.id);
+                              setState(() {}); // Refresh drawer
+                           },
+                         ),
+                       );
+                     },
+                   );
+                 },
+               ),
+             ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

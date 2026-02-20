@@ -25,6 +25,7 @@ import 'package:my_sejahtera_ng/core/widgets/raining_icons.dart';
 import 'package:google_fonts/google_fonts.dart'; // Ensure font usage
 import 'package:my_sejahtera_ng/features/dashboard/widgets/next_appointment_card.dart';
 import 'package:my_sejahtera_ng/features/health_assistant/providers/appointment_provider.dart';
+import 'package:my_sejahtera_ng/features/dashboard/widgets/upcoming_appointments_carousel.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -120,8 +121,8 @@ class DashboardScreen extends ConsumerWidget {
 
                       const SizedBox(height: 24),
 
-                      // NEW: Upcoming Appointment
-                      const NextAppointmentCard().animate().fadeIn(delay: 400.ms).slideY(),
+                      // NEW: Upcoming Appointment Carousel
+                      const UpcomingAppointmentsCarousel().animate().fadeIn(delay: 400.ms).slideY(),
                       
                       // Weekly Health Score
                       const HealthInsightBanner().animate().fadeIn().slideY(begin: 0.1, end: 0, duration: 600.ms),

@@ -101,7 +101,15 @@ class UserNotifier extends Notifier<UserSession?> {
           .eq('id', userId)
           .single();
       
-      state = UserSession.fromMap(response);
+      final currentUser = _supabase.auth.currentUser;
+      final profileData = Map<String, dynamic>.from(response);
+      
+      // Inject email from Auth if missing in Profile
+      if (profileData['email'] == null && currentUser?.email != null) {
+        profileData['email'] = currentUser!.email;
+      }
+
+      state = UserSession.fromMap(profileData);
     } catch (e) {
       debugPrint("Error loading profile: $e");
       // Handle edge case: User exists in Auth but not in Profiles?

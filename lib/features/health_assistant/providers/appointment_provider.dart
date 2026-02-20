@@ -183,6 +183,18 @@ class AppointmentNotifier extends Notifier<AppointmentState> {
     }
   }
 
+  Future<void> cancelAppointmentId(String id) async {
+    try {
+      await _supabase.from('appointments').delete().eq('id', id);
+      
+      state = state.copyWith(
+        appointments: state.appointments.where((a) => a.id != id).toList(),
+      );
+    } catch (e) {
+      debugPrint("Error cancelling appointment: $e");
+    }
+  }
+
   void cancelBooking() {
     state = state.copyWith(
       isBooking: false,

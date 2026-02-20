@@ -3,6 +3,8 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:my_sejahtera_ng/features/auth/screens/login_screen.dart';
+import 'package:my_sejahtera_ng/features/dashboard/screens/dashboard_screen.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -15,12 +17,15 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    // Navigate to Dashboard after animation
+    // Navigate to Dashboard or Login after animation
     Future.delayed(const Duration(milliseconds: 3500), () {
       if (mounted) {
+         final session = Supabase.instance.client.auth.currentSession;
+         final Widget nextScreen = session != null ? const DashboardScreen() : const LoginScreen();
+
          Navigator.of(context).pushReplacement(
            PageRouteBuilder(
-             pageBuilder: (_, __, ___) => const LoginScreen(),
+             pageBuilder: (_, __, ___) => nextScreen,
              transitionsBuilder: (_, animation, __, child) {
                return FadeTransition(opacity: animation, child: child);
              },
