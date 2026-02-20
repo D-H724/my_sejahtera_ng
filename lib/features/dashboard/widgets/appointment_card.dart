@@ -37,27 +37,33 @@ class AppointmentCard extends ConsumerWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF00C6FF).withOpacity(0.2),
-                          shape: BoxShape.circle,
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF00C6FF).withOpacity(0.2),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(LucideIcons.calendarClock, color: Color(0xFF00C6FF), size: 20),
                         ),
-                        child: const Icon(LucideIcons.calendarClock, color: Color(0xFF00C6FF), size: 20),
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        "Upcoming Appointment",
-                        style: GoogleFonts.outfit(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            "Upcoming Appointment",
+                            style: GoogleFonts.outfit(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(

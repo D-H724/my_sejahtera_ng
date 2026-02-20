@@ -1164,13 +1164,13 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
         double distKm = distMeters / 1000;
         
         // Only show clinics within 50km
-        // if (distKm <= 50) { // REMOVED LIMIT to always find something
+        if (distKm <= 50) { 
           nearbyClinics.add({
             "name": clinic['name'] ?? clinic['clinic_name'] ?? 'Unknown Clinic',
             "distVal": distKm,
             "dist": "${distKm.toStringAsFixed(1)} km"
           });
-        // }
+        }
       }
 
       // Sort by distance
