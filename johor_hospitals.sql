@@ -1,0 +1,18 @@
+INSERT INTO clinics (id, name, address, latitude, longitude, type, image_url, created_at) VALUES 
+(gen_random_uuid(), 'Hospital Sultan Ismail', 'Jalan Persiaran Mutiara Emas Utama, Mount Austin, 81100 Johor Bahru', 1.5451, 103.7952, 'Hospital', 'https://via.placeholder.com/150', now()),
+(gen_random_uuid(), 'Hospital Permai', 'Persiaran Kempas Baru, 81200 Johor Bahru', 1.5225, 103.7027, 'Hospital', 'https://via.placeholder.com/150', now()),
+(gen_random_uuid(), 'Hospital Enche'' Besar Hajjah Khalsom', 'KM 5, Jalan Kota Tinggi, 86000 Kluang', 2.0305, 103.3150, 'Hospital', 'https://via.placeholder.com/150', now()),
+(gen_random_uuid(), 'Hospital Pakar Sultanah Fatimah', 'Jalan Salleh, 84000 Muar', 2.0435, 102.5694, 'Hospital', 'https://via.placeholder.com/150', now()),
+(gen_random_uuid(), 'Hospital Segamat', 'KM 6, Jalan Genuang, 85000 Segamat', 2.5152, 102.8222, 'Hospital', 'https://via.placeholder.com/150', now()),
+(gen_random_uuid(), 'Hospital Pontian', 'Jalan Alsagoff, 82000 Pontian', 1.4886, 103.3912, 'Hospital', 'https://via.placeholder.com/150', now()),
+(gen_random_uuid(), 'Hospital Kota Tinggi', 'Jalan Lombong, 81900 Kota Tinggi', 1.7370, 103.8988, 'Hospital', 'https://via.placeholder.com/150', now()),
+(gen_random_uuid(), 'KPJ Puteri Specialist Hospital', '33, Jalan Tun Abdul Razak (Susur 5), 80350 Johor Bahru', 1.5037, 103.7380, 'Hospital', 'https://via.placeholder.com/150', now()),
+(gen_random_uuid(), 'KPJ Pasir Gudang Specialist Hospital', 'Lot PTD 204781, Jalan Masjid, 81750 Pasir Gudang', 1.4735, 103.8967, 'Hospital', 'https://via.placeholder.com/150', now()),
+(gen_random_uuid(), 'Gleneagles Hospital Medini Johor', '2, Jalan Medini Utara 4, Medini Iskandar, 79250 Iskandar Puteri', 1.4287, 103.6267, 'Hospital', 'https://via.placeholder.com/150', now()),
+(gen_random_uuid(), 'Columbia Asia Hospital - Iskandar Puteri', 'Persiaran Afiat, Taman Kesihatan Afiat, 79250 Iskandar Puteri', 1.4925, 103.6457, 'Hospital', 'https://via.placeholder.com/150', now()),
+(gen_random_uuid(), 'Columbia Asia Hospital - Tebrau', 'Persiaran Southkey 5, Kota Southkey, 80150 Johor Bahru', 1.5542, 103.7846, 'Hospital', 'https://via.placeholder.com/150', now()),
+(gen_random_uuid(), 'Regency Specialist Hospital', '1, Jalan Suria, Bandar Seri Alam, 81750 Masai', 1.5135, 103.8820, 'Hospital', 'https://via.placeholder.com/150', now()),
+(gen_random_uuid(), 'Kempas Medical Centre', 'Lot PTD 104997, Persiaran Kempas Baru, 81200 Johor Bahru', 1.5369, 103.7144, 'Hospital', 'https://via.placeholder.com/150', now()),
+(gen_random_uuid(), 'Pantai Hospital Batu Pahat', '9S, Jalan Kluang, 83000 Batu Pahat', 1.8550, 102.9463, 'Hospital', 'https://via.placeholder.com/150', now()),
+(gen_random_uuid(), 'Putra Specialist Hospital Batu Pahat', '1, Jalan Peserai Jaya, 83000 Batu Pahat', 1.8542, 102.9298, 'Hospital', 'https://via.placeholder.com/150', now()),
+(gen_random_uuid(), 'KPJ Bandar Dato'' Onn Specialist Hospital', 'Jalan Bukit Mutiara, Bandar Dato Onn, 81100 Johor Bahru', 1.5647, 103.7451, 'Hospital', 'https://via.placeholder.com/150', now());
