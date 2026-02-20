@@ -978,7 +978,10 @@ class _AIChatScreenState extends ConsumerState<AIChatScreen> {
           "- Calories Today: ${foodState.totalCalories} / ${foodState.calorieTarget} kcal\n"
           "- Hydration: ${foodState.waterCount} glasses (Goal: 8)\n"
           "- Medications: ${medState.medications.length} active, ${medState.medications.where((m) => m.isTaken).length} taken today.\n"
-          "\nUse this data to be proactively helpful. If they have low hydration, remind them to drink water. If they exceeded calories, suggest a light walk. If they missed meds, remind them gently.";
+          "\nUse this data to be proactively helpful but strictly follow this format:\n"
+          "1. First, directly answer the user's question concisely in 1-2 sentences.\n"
+          "2. If you notice an actionable health insight from the data above (e.g. low hydration, exceeded calories, missed meds), add a blank line and then provide the reminder under a bolded '**Health Insight:**' title.\n"
+          "Do NOT blend the health reminder into the main answer paragraph.";
     }
 
     // Groq uses OpenAI-compatible format
